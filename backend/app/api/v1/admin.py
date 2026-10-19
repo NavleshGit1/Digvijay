@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db, require_permission
 from app.core.enums import UserRole
 from app.engines.data_fusion.generator import seed_database
+from app.models.audit import AuditLog
 from app.models.identity import User
 from app.models.provenance import DataQualityIssue, DatasetVersion
 
@@ -97,4 +98,52 @@ def list_data_quality_issues(
             "created_at": i.created_at.isoformat(),
         }
         for i in issues
+    ]
+
+
+@router.get("/audit-logs")
+def list_audit_logs(
+    action: str | None = None,
+    entity_type: str | None = None,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission([UserRole.PLANNER, UserRole.REVIEWER, UserRole.ANALYST, UserRole.ADMIN])),
+) -> list[dict[str, Any]]:
+    """
+    List immutable cryptographic audit ledger entries with SHA-256 hash chains.
+    Planners see their own actions; Reviewers, Analysts, and Admins inspect system-wide audit records.
+    """
+    user_roles = {r.name for r in current_user.roles}
+    stmt = select(AuditLog)
+
+    # Scoped access for planner
+    if UserRole.ADMIN.value not in user_roles and UserRole.REVIEWER.value not in user_roles and UserRole.ANALYST.value not in user_roles:
+        stmt = stmt.where(AuditLog.actor_id == current_user.id)
+
+    if action:
+        stmt = stmt.where(AuditLog.action == action)
+    if entity_type:
+        stmt = stmt.where(AuditLog.entity_type == entity_type)
+
+    stmt = stmt.order_by(AuditLog.timestamp.desc()).limit(limit)
+    rows = db.execute(stmt).scalars().all()
+
+    return [
+        {
+            "id": str(row.id),
+            "actor_id": str(row.actor_id) if row.actor_id else None,
+            "role": row.role,
+            "action": row.action,
+            "entity_type": row.entity_type,
+            "entity_id": row.entity_id,
+            "before_state": row.before_state,
+            "after_state": row.after_state,
+            "plan_version_id": str(row.plan_version_id) if row.plan_version_id else None,
+            "reason": row.reason,
+            "request_id": row.request_id,
+            "timestamp": row.timestamp.isoformat(),
+            "previous_hash": row.previous_hash,
+            "record_hash": row.record_hash,
+        }
+        for row in rows
     ]
