@@ -76,8 +76,27 @@ export const App: React.FC = () => {
     };
   }, []);
 
-  const handleRoleSwitch = (role: UserRole) => {
+  // Ensure JWT token is set on initial mount
+  useEffect(() => {
+    if (!api.getToken()) {
+      api.login("planner@airops.local", "PlannerSecurePass2026!").catch(() => {});
+    }
+  }, []);
+
+  const handleRoleSwitch = async (role: UserRole) => {
     if (!user) return;
+    try {
+      const passMap: Record<string, string> = {
+        planner: "PlannerSecurePass2026!",
+        reviewer: "ReviewerSecurePass2026!",
+        analyst: "AnalystSecurePass2026!",
+        admin: "AdminSecurePass2026!",
+      };
+      const password = passMap[role] || "PlannerSecurePass2026!";
+      await api.login(`${role}@airops.local`, password);
+    } catch (e) {
+      console.warn("Could not login via API, continuing in demo state", e);
+    }
     setUser({
       ...user,
       username: role,
@@ -87,6 +106,18 @@ export const App: React.FC = () => {
   };
 
   const handleLogin = async (roleName: string) => {
+    try {
+      const passMap: Record<string, string> = {
+        planner: "PlannerSecurePass2026!",
+        reviewer: "ReviewerSecurePass2026!",
+        analyst: "AnalystSecurePass2026!",
+        admin: "AdminSecurePass2026!",
+      };
+      const password = passMap[roleName] || "PlannerSecurePass2026!";
+      await api.login(`${roleName}@airops.local`, password);
+    } catch (e) {
+      console.warn("Could not login via API, continuing in demo state", e);
+    }
     setUser({
       id: `demo-${roleName}-id`,
       username: roleName,
