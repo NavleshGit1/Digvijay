@@ -1,0 +1,21 @@
+:80 {
+    # API requests reverse proxy
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+
+    handle /docs* {
+        reverse_proxy backend:8000
+    }
+
+    handle /openapi.json {
+        reverse_proxy backend:8000
+    }
+
+    # Frontend SPA static file server
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}

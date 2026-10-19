@@ -1,0 +1,21 @@
+{
+  "name": "airops-nexus-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AirOps Nexus — Dynamic Air Operations and Resource Optimisation Monorepo",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev:frontend": "npm run --prefix frontend dev",
+    "build:frontend": "npm run --prefix frontend build",
+    "lint:frontend": "npm run --prefix frontend lint",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "lint:clock": "python scripts/lint_clock.py backend/app"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}

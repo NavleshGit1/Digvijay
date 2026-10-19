@@ -1,0 +1,53 @@
+:root {
+  /* Brand & Shell Colors */
+  --color-sidebar-bg: #0b132b;          /* Deep Obsidian Navy */
+  --color-sidebar-hover: #1c2541;       /* Dark Indigo Navy */
+  --color-sidebar-text: #e2e8f0;        /* Slate 200 */
+  --color-sidebar-muted: #94a3b8;       /* Slate 400 */
+  --color-sidebar-border: #1e293b;      /* Slate 800 */
+
+  /* Surface & Workspace */
+  --color-workspace-bg: #f8fafc;        /* Slate 50 Neutral Surface */
+  --color-card-bg: #ffffff;             /* Pure White Container */
+  --color-card-border: #e2e8f0;         /* Slate 200 Border */
+  --color-card-muted: #f1f5f9;          /* Slate 100 Alternate */
+
+  /* Typography */
+  --color-text-primary: #0f172a;        /* Slate 900 High Contrast Text */
+  --color-text-secondary: #475569;      /* Slate 600 Body & Label Text */
+  --color-text-muted: #64748b;          /* Slate 500 Subtle Captions */
+  --color-text-disabled: #94a3b8;       /* Slate 400 Inactive Text */
+
+  /* Brand Primary Accent */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;         /* Core Interaction Blue */
+  --color-primary-700: #1d4ed8;         /* Primary Hover */
+  --color-primary-contrast: #ffffff;
+
+  /* Semantic Status - Success / Healthy */
+  --color-success-bg: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-success-text: #166534;
+  --color-success-icon: #16a34a;
+
+  /* Semantic Status - Warning / Degraded */
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-warning-text: #92400e;
+  --color-warning-icon: #d97706;
+
+  /* Semantic Status - Critical / Infeasible / Error */
+  --color-critical-bg: #fef2f2;
+  --color-critical-border: #fecaca;
+  --color-critical-text: #991b1b;
+  --color-critical-icon: #dc2626;
+
+  /* Data Kind Provenance Badges */
+  --badge-observed-bg: #e0f2fe;   --badge-observed-text: #0369a1;
+  --badge-predicted-bg: #f3e8ff;  --badge-predicted-text: #6b21a8;
+  --badge-simulated-bg: #ecfdf5;  --badge-simulated-text: #047857;
+  --badge-synthetic-bg: #f1f5f9;  --badge-synthetic-text: #334155;
+  --badge-stale-bg: #fff7ed;      --badge-stale-text: #c2410c;
+}

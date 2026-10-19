@@ -1,0 +1,84 @@
+name: AirOps Nexus CI Pipeline
+
+on:
+  push:
+    branches: [main, "release/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-qa:
+    name: Backend Lint, Type-Check & Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Enforce AST Clock Lint Rule
+        run: |
+          python scripts/lint_clock.py backend/app
+
+      - name: Run Ruff Linter & Formatter Check
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Run Mypy Type Check
+        run: |
+          mypy backend/app
+
+      - name: Run Unit & Property Tests
+        run: |
+          pytest --cov=backend/app --cov-report=term-missing backend/tests
+
+  frontend-qa:
+    name: Frontend Lint, Type-Check & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: frontend/package.json
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend Type Check
+        working-directory: frontend
+        run: npm run type-check
+
+      - name: Frontend Linting Check
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Frontend Production Build
+        working-directory: frontend
+        run: npm run build
+
+  contract-sync:
+    name: API Contract Synchronization Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Validate OpenAPI Schema
+        run: |
+          python -c "import json; schema = json.load(open('docs/openapi.json')); assert schema['openapi'].startswith('3.1')"

@@ -1,0 +1,112 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: airops_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-airops_nexus}
+      POSTGRES_USER: ${POSTGRES_USER:-airops_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-airops_secure_password}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airops_user -d airops_nexus"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: airops_redis
+    restart: always
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: elestio/minio:latest
+    container_name: airops_minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-airops_minio_admin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-airops_minio_secure_key}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: airops_backend
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+psycopg://airops_user:airops_secure_password@postgres:5432/airops_nexus
+      REDIS_URL: redis://redis:6379/0
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: airops_minio_admin
+      MINIO_SECRET_KEY: airops_minio_secure_key
+      DEMO_MODE: "true"
+      DEBUG: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/system/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: airops_worker
+    restart: always
+    command: ["celery", "-A", "app.worker.celery_app", "worker", "--loglevel=info", "-Q", "default,optimise,ml,simulate,report,ingest"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://airops_user:airops_secure_password@postgres:5432/airops_nexus
+      REDIS_URL: redis://redis:6379/0
+      DEMO_MODE: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: airops_caddy
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./frontend/dist:/srv
+    depends_on:
+      - backend
+
+volumes:
+  pg_data:
+  redis_data:
+  minio_data:
