@@ -53,14 +53,19 @@ def create_access_token(subject: str, roles: list[str], expires_delta: timedelta
 
 
 def decode_access_token(token: str) -> dict[str, Any] | None:
-    """Decodes and validates a JWT token."""
+    """Decodes and validates a JWT token against the virtual clock."""
     try:
+        clock = get_clock()
         payload = jwt.decode(
             token,
             settings.APP_SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM],
             issuer="airops-nexus",
+            options={"verify_exp": False},
         )
+        exp = payload.get("exp")
+        if exp and int(clock.now().timestamp()) > exp:
+            return None
         return payload
     except jwt.PyJWTError:
         return None

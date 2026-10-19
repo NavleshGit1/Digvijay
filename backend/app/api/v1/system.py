@@ -85,31 +85,8 @@ def get_environment() -> dict[str, Any]:
 
 
 @router.get("/data-sources")
-def get_data_sources() -> list[dict[str, Any]]:
-    """Returns registered data connectors and freshness status."""
-    return [
-        {
-            "id": "ds-seed-generator",
-            "name": "Deterministic Synthetic Generator",
-            "adapter_type": "internal_seed",
-            "freshness": "fresh",
-            "last_synced_at": "2026-10-19T12:00:00Z",
-            "status": "active",
-        },
-        {
-            "id": "ds-flight-ops-connector",
-            "name": "Flight Operations Adapter (Synthetic Stub)",
-            "adapter_type": "json_adapter",
-            "freshness": "fresh",
-            "last_synced_at": "2026-10-19T11:45:00Z",
-            "status": "active",
-        },
-        {
-            "id": "ds-maint-telemetry-connector",
-            "name": "Maintenance Telemetry Adapter (Synthetic Stub)",
-            "adapter_type": "csv_adapter",
-            "freshness": "fresh",
-            "last_synced_at": "2026-10-19T11:30:00Z",
-            "status": "active",
-        },
-    ]
+def get_data_sources(db: Session = Depends(get_db)) -> list[dict[str, Any]]:
+    """Returns registered data connectors and live freshness SLA status."""
+    from app.engines.data_fusion.freshness import evaluate_all_data_source_freshness
+    return evaluate_all_data_source_freshness(db)
+

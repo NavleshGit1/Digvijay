@@ -103,3 +103,49 @@ class ClockMode(str, Enum):
     SYSTEM = "system"
     FIXED = "fixed"
     SIMULATED = "simulated"
+
+
+class PersonnelStatus(str, Enum):
+    AVAILABLE = "available"
+    ON_DUTY = "on_duty"
+    REST_PERIOD = "rest_period"
+    LEAVE = "leave"
+    TRAINING = "training"
+
+
+class TaskPriority(str, Enum):
+    LOW = "low"
+    ROUTINE = "routine"
+    HIGH = "high"
+    CRITICAL = "critical"
+    FLASH = "flash"
+
+
+class EventType(str, Enum):
+    ASSET_UNAVAILABILITY = "asset_unavailability"
+    MAINTENANCE_DELAY = "maintenance_delay"
+    CAPACITY_REDUCTION = "capacity_reduction"
+    STALE_DATA = "stale_data"
+    ENVIRONMENTAL_RESTRICTION = "environmental_restriction"
+    TASK_PROGRESS = "task_progress"
+    RESUPPLY_DELAY = "resupply_delay"
+
+
+class AssetType(str, Enum):
+    FIGHTER_MULTIROLE = "FIGHTER_MULTIROLE"
+    TRANSPORT_CARGO = "TRANSPORT_CARGO"
+    RECON_SURVEILLANCE = "RECON_SURVEILLANCE"
+    REFUELER_TANKER = "REFUELER_TANKER"
+
+
+class IssueClass(str, Enum):
+    INTEGRITY_ERROR = "integrity_error"
+    CONFLICT = "conflict"
+    STALE = "stale"
+
+
+class IssueStatus(str, Enum):
+    OPEN = "open"
+    RESOLVED = "resolved"
+    IGNORED = "ignored"
+

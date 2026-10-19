@@ -12,6 +12,8 @@ class DataKindEnvelope(BaseModel):
     model_version: str | None = None
     confidence_interval: list[float] | None = None
 
+    model_config = {"protected_namespaces": ()}
+
 
 class OverviewKPIResponse(BaseModel):
     asset_availability: DataKindEnvelope
