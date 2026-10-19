@@ -27,6 +27,7 @@ export interface DataTableProps<T> {
   pageSize?: number;
   filters?: React.ReactNode;
   actions?: React.ReactNode;
+  onRowClick?: (row: T) => void;
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -43,6 +44,7 @@ export function DataTable<T extends Record<string, any>>({
   pageSize = 15,
   filters,
   actions,
+  onRowClick,
 }: DataTableProps<T>) {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -249,7 +251,10 @@ export function DataTable<T extends Record<string, any>>({
                   return (
                     <tr
                       key={key}
-                      className="hover:bg-blue-50/40 transition-colors duration-150"
+                      onClick={() => onRowClick?.(row)}
+                      className={`hover:bg-blue-50/40 transition-colors duration-150 ${
+                        onRowClick ? "cursor-pointer" : ""
+                      }`}
                     >
                       {columns.map((col) => {
                         const cellContent = col.render ? col.render(row) : row[col.key];

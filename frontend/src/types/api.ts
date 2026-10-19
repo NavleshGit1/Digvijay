@@ -198,3 +198,122 @@ export interface OperationalEvent {
   payload_json: Record<string, any>;
   timestamp: string;
 }
+
+export interface PlanSummary {
+  id: string;
+  name: string;
+  current_approved_version_id: string | null;
+  versions_count: number;
+  latest_version: number;
+  latest_solver_status: SolverStatus | null;
+  created_at: string;
+}
+
+export interface PlanAssignmentItem {
+  id: string;
+  task_id: string;
+  task_code: string;
+  task_category: string;
+  priority: string;
+  asset_id: string | null;
+  asset_identifier: string;
+  asset_model: string | null;
+  personnel_ids: string[];
+  assigned_start: string;
+  assigned_end: string;
+  duration_minutes: number;
+  delay_minutes: number;
+  is_locked: boolean;
+}
+
+export interface PlanValidationReport {
+  is_valid: boolean;
+  violation_count: number;
+  violations: Array<{
+    constraint_code: string;
+    message: string;
+    entity_type: string;
+    entity_id: string;
+    conflicting_task_id?: string;
+    details?: Record<string, any>;
+  }>;
+  binding_constraints: Array<{
+    constraint_code: string;
+    entity_type: string;
+    entity_id: string;
+    slack_minutes: number;
+    description: string;
+  }>;
+  validated_at: string | null;
+}
+
+export interface PlanVersionDetail {
+  plan_id: string;
+  version_number: number;
+  kind: PlanKind;
+  status: PlanStatus;
+  solver_status: SolverStatus;
+  plan_source: PlanSource;
+  as_of: string;
+  snapshot_hash: string;
+  runtime_seconds: number;
+  metrics: {
+    total_horizon_tasks?: number;
+    scheduled_count?: number;
+    unassigned_count?: number;
+    total_delay_minutes?: number;
+    completion_rate?: number;
+    objective_value?: number;
+    best_bound?: number;
+  };
+  manifest: Record<string, any>;
+  validation: PlanValidationReport;
+  assignments_count: number;
+  assignments: PlanAssignmentItem[];
+}
+
+export interface GanttBlock {
+  id: string;
+  type: "task" | "maintenance" | "sortie";
+  code: string;
+  category: string;
+  priority?: string;
+  start: string;
+  end: string;
+  duration_minutes?: number;
+}
+
+export interface GanttTrack {
+  asset_id?: string;
+  identifier?: string;
+  model_name?: string;
+  asset_type?: string;
+  status?: string;
+  personnel_id?: string;
+  name?: string;
+  callsign?: string;
+  role_type?: string;
+  blocks: GanttBlock[];
+}
+
+export interface GanttTimelineResponse {
+  plan_id: string;
+  version_number: number;
+  as_of: string;
+  asset_tracks: GanttTrack[];
+  crew_tracks: GanttTrack[];
+}
+
+export interface ObjectiveWeightSet {
+  id: string;
+  version: number;
+  name: string;
+  delay_weight: number;
+  completion_weight: number;
+  churn_weight: number;
+  balance_weight: number;
+  buffer_weight: number;
+  is_active: boolean;
+  created_by?: string;
+  created_at: string;
+}

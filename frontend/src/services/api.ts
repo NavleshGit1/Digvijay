@@ -12,6 +12,10 @@ import {
   Task,
   UserProfile,
   Zone,
+  PlanSummary,
+  PlanVersionDetail,
+  GanttTimelineResponse,
+  ObjectiveWeightSet,
 } from "../types/api";
 
 const API_BASE = "/api/v1";
@@ -257,6 +261,61 @@ class ApiClient {
     return this.request("/demo/reset", {
       method: "POST",
       body: JSON.stringify({ confirmation: "RESET", seed }),
+    });
+  }
+
+  // Phase 4: Optimisation & Plans
+  async getPlans(): Promise<PlanSummary[]> {
+    return this.request<PlanSummary[]>("/plans");
+  }
+
+  async getPlanVersion(planId: string, versionNumber: number): Promise<PlanVersionDetail> {
+    return this.request<PlanVersionDetail>(`/plans/${planId}/versions/${versionNumber}`);
+  }
+
+  async getPlanGantt(planId: string, versionNumber: number): Promise<GanttTimelineResponse> {
+    return this.request<GanttTimelineResponse>(`/plans/${planId}/versions/${versionNumber}/gantt`);
+  }
+
+  async createOptimisationJob(params: {
+    job_type: "baseline" | "optimise";
+    plan_name?: string;
+    time_limit_seconds?: number;
+    seed?: number;
+    weight_set_version?: number;
+    run_async?: boolean;
+  }): Promise<{ job_id: string; job_type: string; state: string; result?: any }> {
+    return this.request("/optimisation/jobs", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+  }
+
+  async getOptimisationJob(jobId: string): Promise<any> {
+    return this.request(`/optimisation/jobs/${jobId}`);
+  }
+
+  async cancelOptimisationJob(jobId: string): Promise<any> {
+    return this.request(`/optimisation/jobs/${jobId}/cancel`, {
+      method: "POST",
+    });
+  }
+
+  async getWeightSets(): Promise<ObjectiveWeightSet[]> {
+    return this.request<ObjectiveWeightSet[]>("/optimisation/weight-sets");
+  }
+
+  async createWeightSet(data: {
+    name: string;
+    delay_weight: number;
+    completion_weight: number;
+    churn_weight: number;
+    balance_weight: number;
+    buffer_weight: number;
+  }): Promise<ObjectiveWeightSet> {
+    return this.request<ObjectiveWeightSet>("/optimisation/weight-sets", {
+      method: "POST",
+      body: JSON.stringify(data),
     });
   }
 }

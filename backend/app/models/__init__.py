@@ -15,7 +15,7 @@ from app.models.provenance import (
     DataQualityIssue,
     Event,
 )
-from app.models.plans import Plan, PlanVersion, PlanAssignment
+from app.models.plans import Plan, PlanVersion, PlanAssignment, PlanValidation, ObjectiveWeightSet
 
 __all__ = [
     "BaseModel",
@@ -51,4 +51,6 @@ __all__ = [
     "Plan",
     "PlanVersion",
     "PlanAssignment",
+    "PlanValidation",
+    "ObjectiveWeightSet",
 ]

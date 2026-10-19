@@ -46,6 +46,7 @@ class PlanStatus(str, Enum):
 
 class PlanSource(str, Enum):
     CPSAT = "cpsat"
+    HEURISTIC = "heuristic"
     HEURISTIC_FALLBACK = "heuristic_fallback"
     ROLLBACK = "rollback"
     MANUAL = "manual"

@@ -60,6 +60,7 @@ services:
     volumes:
       - ./backend/app:/app/app
       - ./backend/tests:/app/tests
+      - ./backend/alembic:/app/alembic
     environment:
       PYTHONPATH: /app
       DATABASE_URL: postgresql+psycopg://airops_user:airops_secure_password@postgres:5432/airops_nexus
@@ -92,6 +93,7 @@ services:
     volumes:
       - ./backend/app:/app/app
       - ./backend/tests:/app/tests
+      - ./backend/alembic:/app/alembic
     environment:
       PYTHONPATH: /app
       DATABASE_URL: postgresql+psycopg://airops_user:airops_secure_password@postgres:5432/airops_nexus

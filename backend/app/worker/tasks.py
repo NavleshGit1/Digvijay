@@ -98,3 +98,40 @@ def dummy_job(self, job_id_str: str, duration_seconds: int = 5) -> dict:
         raise
     finally:
         db.close()
+
+
+@celery_app.task(bind=True, queue="optimise")
+def run_optimisation_job(self, job_id_str: str, params: dict | None = None) -> dict:
+    """Celery task executing Baseline or CP-SAT optimisation job with SSE progress streaming."""
+    from app.services.optimisation import OptimisationService
+
+    params = params or {}
+    db = SessionLocal()
+    try:
+        def progress_callback(pct: float, msg: str):
+            publish_job_progress(job_id_str, JobState.RUNNING.value, pct, msg)
+
+        service = OptimisationService(db)
+        result = service.execute_optimisation_job(
+            job_id_str=job_id_str,
+            job_type=params.get("job_type", "optimise"),
+            plan_name=params.get("plan_name", "Operational Master Plan 2026"),
+            time_limit_seconds=float(params.get("time_limit_seconds", 15.0)),
+            seed=int(params.get("seed", 42)),
+            weight_set_version=int(params.get("weight_set_version", 1)),
+            progress_cb=progress_callback,
+        )
+        publish_job_progress(job_id_str, JobState.COMPLETED.value, 100.0, "Optimisation execution completed successfully")
+        return result
+    except Exception as e:
+        job_uuid = uuid.UUID(job_id_str)
+        job = db.execute(select(Job).where(Job.id == job_uuid)).scalars().first()
+        if job:
+            job.state = JobState.FAILED.value
+            job.message = str(e)
+            db.commit()
+        publish_job_progress(job_id_str, JobState.FAILED.value, 0.0, f"Optimisation job failed: {e}")
+        raise
+    finally:
+        db.close()
+

@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime, timedelta
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.clock import get_clock
@@ -211,63 +211,80 @@ def test_hard_maintenance_window_validation_rule(db: Session):
     maint_start = now + timedelta(days=3)
     maint_end = maint_start + timedelta(hours=8)
 
-    # 1. Schedule initial maintenance record
-    plan_headers = get_auth_headers(db, "planner@airops.local")
-    payload = {
-        "asset_id": str(asset.id),
-        "category": "scheduled_phase_inspection",
-        "start_time": maint_start.isoformat(),
-        "end_time": maint_end.isoformat(),
-        "is_unplanned": False,
-        "reason": "Scheduled 100-hour phase inspection",
-    }
-    res_create = client.post("/api/v1/maintenance/records", json=payload, headers=plan_headers)
-    assert res_create.status_code == 201
-    created_id = res_create.json()["id"]
+    # Clear any previous test maintenance for this window
+    db.execute(
+        delete(MaintenanceRecord).where(
+            MaintenanceRecord.asset_id == asset.id,
+            MaintenanceRecord.start_time < maint_end + timedelta(days=1),
+            MaintenanceRecord.end_time > maint_start - timedelta(days=1),
+        )
+    )
+    db.commit()
 
-    # 2. Test validation endpoint with overlapping window
-    overlap_start = maint_start + timedelta(hours=2)
-    overlap_end = maint_start + timedelta(hours=6)
-    val_payload = {
-        "asset_id": str(asset.id),
-        "start_time": overlap_start.isoformat(),
-        "end_time": overlap_end.isoformat(),
-    }
-    res_val = client.post("/api/v1/maintenance/validate-window", json=val_payload)
-    assert res_val.status_code == 200
-    val_data = res_val.json()
-    assert val_data["is_compatible"] is False
-    assert "Hard Maintenance Window Conflict" in val_data["conflict_details"]
-    assert val_data["conflicting_record_id"] == created_id
-
-    # 3. Attempt to schedule overlapping maintenance (MUST reject with HTTP 409 Conflict)
-    res_conflict = client.post(
-        "/api/v1/maintenance/records",
-        json={
+    created_id = None
+    try:
+        # 1. Schedule initial maintenance record
+        plan_headers = get_auth_headers(db, "planner@airops.local")
+        payload = {
             "asset_id": str(asset.id),
-            "category": "avionics_check",
+            "category": "scheduled_phase_inspection",
+            "start_time": maint_start.isoformat(),
+            "end_time": maint_end.isoformat(),
+            "is_unplanned": False,
+            "reason": "Scheduled 100-hour phase inspection",
+        }
+        res_create = client.post("/api/v1/maintenance/records", json=payload, headers=plan_headers)
+        assert res_create.status_code == 201
+        created_id = res_create.json()["id"]
+
+        # 2. Test validation endpoint with overlapping window
+        overlap_start = maint_start + timedelta(hours=2)
+        overlap_end = maint_start + timedelta(hours=6)
+        val_payload = {
+            "asset_id": str(asset.id),
             "start_time": overlap_start.isoformat(),
             "end_time": overlap_end.isoformat(),
-            "reason": "Overlapping request",
-        },
-        headers=plan_headers,
-    )
-    assert res_conflict.status_code == 409
-    assert "Hard Maintenance Window Conflict" in res_conflict.json()["detail"]
+        }
+        res_val = client.post("/api/v1/maintenance/validate-window", json=val_payload)
+        assert res_val.status_code == 200
+        val_data = res_val.json()
+        assert val_data["is_compatible"] is False
+        assert "Hard Maintenance Window Conflict" in val_data["conflict_details"]
+        assert val_data["conflicting_record_id"] == created_id
 
-    # 4. Non-overlapping window is compatible
-    clean_start = maint_end + timedelta(hours=4)
-    clean_end = clean_start + timedelta(hours=4)
-    res_clean_val = client.post(
-        "/api/v1/maintenance/validate-window",
-        json={
-            "asset_id": str(asset.id),
-            "start_time": clean_start.isoformat(),
-            "end_time": clean_end.isoformat(),
-        },
-    )
-    assert res_clean_val.status_code == 200
-    assert res_clean_val.json()["is_compatible"] is True
+        # 3. Attempt to schedule overlapping maintenance (MUST reject with HTTP 409 Conflict)
+        res_conflict = client.post(
+            "/api/v1/maintenance/records",
+            json={
+                "asset_id": str(asset.id),
+                "category": "avionics_check",
+                "start_time": overlap_start.isoformat(),
+                "end_time": overlap_end.isoformat(),
+                "reason": "Overlapping request",
+            },
+            headers=plan_headers,
+        )
+        assert res_conflict.status_code == 409
+        assert "Hard Maintenance Window Conflict" in res_conflict.json()["detail"]
+
+        # 4. Non-overlapping window is compatible
+        clean_start = maint_end + timedelta(hours=4)
+        clean_end = clean_start + timedelta(hours=4)
+        res_clean_val = client.post(
+            "/api/v1/maintenance/validate-window",
+            json={
+                "asset_id": str(asset.id),
+                "start_time": clean_start.isoformat(),
+                "end_time": clean_end.isoformat(),
+            },
+        )
+        assert res_clean_val.status_code == 200
+        assert res_clean_val.json()["is_compatible"] is True
+    finally:
+        if created_id:
+            import uuid
+            db.execute(delete(MaintenanceRecord).where(MaintenanceRecord.id == uuid.UUID(created_id)))
+            db.commit()
 
 
 def test_global_search_and_events_inject(db: Session):

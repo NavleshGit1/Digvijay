@@ -5,6 +5,7 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.demo import router as demo_router
 from app.api.v1.events import router as events_router
 from app.api.v1.jobs import router as jobs_router
+from app.api.v1.optimisation import router as optimisation_router
 from app.api.v1.overview import router as overview_router
 from app.api.v1.resources import router as resources_router
 from app.api.v1.search import router as search_router
@@ -23,4 +24,4 @@ api_router.include_router(demo_router)
 api_router.include_router(resources_router)
 api_router.include_router(search_router)
 api_router.include_router(events_router)
-
+api_router.include_router(optimisation_router)

@@ -51,6 +51,12 @@ from app.models.provenance import (
     DatasetVersion,
     Event,
 )
+from app.models.plans import (
+    Plan,
+    PlanAssignment,
+    PlanValidation,
+    PlanVersion,
+)
 from app.models.resources import (
     Asset,
     Personnel,
@@ -586,6 +592,10 @@ def seed_database(db: Session, seed: int = 42, as_of: datetime | None = None, re
     dataset_hash = gen.compute_dataset_hash(dataset)
 
     if reset:
+        db.execute(delete(PlanAssignment))
+        db.execute(delete(PlanValidation))
+        db.execute(delete(PlanVersion))
+        db.execute(delete(Plan))
         db.execute(delete(Event))
         db.execute(delete(ResupplyOrder))
         db.execute(delete(MaintenanceRecord))
