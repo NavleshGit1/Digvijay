@@ -1,0 +1,360 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AirOps Nexus API",
+    "version": "0.1.0",
+    "description": "API contract for AirOps Nexus: Dynamic Air Operations and Resource Optimisation. Synthetic prototype only."
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "Primary API gateway"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "type": "oauth2",
+        "flows": {
+          "password": {
+            "tokenUrl": "/api/v1/auth/login",
+            "scopes": {}
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ProblemDetails": {
+        "type": "object",
+        "required": ["type", "title", "status", "detail"],
+        "properties": {
+          "type": { "type": "string", "example": "https://airops.local/errors/conflict-version" },
+          "title": { "type": "string", "example": "Conflict Version" },
+          "status": { "type": "integer", "example": 409 },
+          "detail": { "type": "string", "example": "Plan proposal is stale; underlying data was modified." },
+          "instance": { "type": "string", "example": "/api/v1/plans/123/approve" },
+          "code": { "type": "string", "example": "revalidation_failed" },
+          "invalid_params": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "reason": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "DataKindEnvelope": {
+        "type": "object",
+        "required": ["value", "data_kind"],
+        "properties": {
+          "value": {},
+          "data_kind": {
+            "type": "string",
+            "enum": ["observed", "predicted", "simulated", "generated", "synthetic", "demo"]
+          },
+          "as_of": { "type": "string", "format": "date-time" },
+          "model_version": { "type": "string" },
+          "confidence_interval": {
+            "type": "array",
+            "items": { "type": "number" },
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      },
+      "SolverStatus": {
+        "type": "string",
+        "enum": ["optimal", "feasible", "infeasible", "timeout", "unknown", "error"]
+      },
+      "PlanStatus": {
+        "type": "string",
+        "enum": ["proposed", "stale", "approved", "rejected", "superseded", "invalid", "withdrawn"]
+      },
+      "PlanKind": {
+        "type": "string",
+        "enum": ["baseline", "optimised", "replan", "fallback", "rollback", "alternative"]
+      },
+      "PlanSource": {
+        "type": "string",
+        "enum": ["cpsat", "heuristic_fallback", "rollback", "manual"]
+      },
+      "TaskStatus": {
+        "type": "string",
+        "enum": ["pending", "scheduled", "in_progress", "completed", "cancelled", "blocked"]
+      },
+      "AlertStatus": {
+        "type": "string",
+        "enum": ["new", "acknowledged", "resolved", "suppressed"]
+      },
+      "SeverityLevel": {
+        "type": "string",
+        "enum": ["informational", "low", "medium", "high", "critical"]
+      },
+      "ClockState": {
+        "type": "object",
+        "required": ["mode", "current_as_of"],
+        "properties": {
+          "mode": { "type": "string", "enum": ["system", "fixed", "simulated"] },
+          "current_as_of": { "type": "string", "format": "date-time" },
+          "time_scale": { "type": "number", "default": 1.0 }
+        }
+      },
+      "OverviewKPIs": {
+        "type": "object",
+        "required": [
+          "asset_availability",
+          "serviceability",
+          "eligible_tasks",
+          "tasks_scheduled",
+          "maintenance_workload",
+          "overdue_maintenance",
+          "crew_availability",
+          "total_delay",
+          "spares_shortage",
+          "as_of"
+        ],
+        "properties": {
+          "asset_availability": { "$ref": "#/components/schemas/DataKindEnvelope" },
+          "serviceability": { "$ref": "#/components/schemas/DataKindEnvelope" },
+          "eligible_tasks": { "type": "integer" },
+          "tasks_scheduled": { "type": "integer" },
+          "maintenance_workload": { "$ref": "#/components/schemas/DataKindEnvelope" },
+          "overdue_maintenance": { "type": "integer" },
+          "crew_availability": { "$ref": "#/components/schemas/DataKindEnvelope" },
+          "total_delay": { "type": "number" },
+          "spares_shortage": { "type": "integer" },
+          "as_of": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "Authenticate user via username and password",
+        "tags": ["Auth"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "password"],
+                "properties": {
+                  "username": { "type": "string" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Successful login with access token and httpOnly refresh cookie" },
+          "401": { "$ref": "#/components/schemas/ProblemDetails" }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "summary": "Get authenticated user profile and roles",
+        "tags": ["Auth"],
+        "security": [{ "OAuth2PasswordBearer": [] }],
+        "responses": {
+          "200": { "description": "Current user profile" },
+          "401": { "$ref": "#/components/schemas/ProblemDetails" }
+        }
+      }
+    },
+    "/overview": {
+      "get": {
+        "summary": "Get high-level operational overview KPIs and data freshness",
+        "tags": ["Overview"],
+        "parameters": [
+          { "name": "as_of", "in": "query", "schema": { "type": "string", "format": "date-time" } }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/OverviewKPIs" } }
+            }
+          }
+        }
+      }
+    },
+    "/system/clock": {
+      "get": {
+        "summary": "Get current virtual clock state",
+        "tags": ["System"],
+        "responses": {
+          "200": { "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClockState" } } } }
+        }
+      },
+      "put": {
+        "summary": "Advance, pin, or reset system virtual clock (Admin only)",
+        "tags": ["System"],
+        "security": [{ "OAuth2PasswordBearer": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ClockState" } } }
+        },
+        "responses": {
+          "200": { "description": "Clock updated successfully" },
+          "403": { "$ref": "#/components/schemas/ProblemDetails" }
+        }
+      }
+    },
+    "/tasks/{id}/start": {
+      "post": {
+        "summary": "Mark task in-progress and lock resource assignment",
+        "tags": ["Tasks"],
+        "security": [{ "OAuth2PasswordBearer": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Task started and locked" },
+          "403": { "$ref": "#/components/schemas/ProblemDetails" }
+        }
+      }
+    },
+    "/tasks/{id}/complete": {
+      "post": {
+        "summary": "Complete task, record delay, and accrue asset usage",
+        "tags": ["Tasks"],
+        "security": [{ "OAuth2PasswordBearer": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Task completed and usage accrued" }
+        }
+      }
+    },
+    "/plans": {
+      "get": {
+        "summary": "List all plans and plan versions",
+        "tags": ["Plans"],
+        "responses": { "200": { "description": "List of plans" } }
+      }
+    },
+    "/plans/{id}/approve": {
+      "post": {
+        "summary": "Approve plan proposal with approval-time revalidation (Reviewer only)",
+        "tags": ["Plans"],
+        "security": [{ "OAuth2PasswordBearer": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } },
+          { "name": "If-Match", "in": "header", "required": true, "schema": { "type": "string" } },
+          { "name": "Idempotency-Key", "in": "header", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["reason"],
+                "properties": { "reason": { "type": "string" } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Plan approved, previous superseded, siblings marked stale" },
+          "409": { "$ref": "#/components/schemas/ProblemDetails", "description": "Revalidation failed or version conflict" }
+        }
+      }
+    },
+    "/plans/{id}/rollback-proposal": {
+      "post": {
+        "summary": "Create proposal of kind rollback targeting earlier version",
+        "tags": ["Plans"],
+        "security": [{ "OAuth2PasswordBearer": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "type": "object", "required": ["reason"], "properties": { "reason": { "type": "string" } } } } }
+        },
+        "responses": {
+          "201": { "description": "Rollback proposal created" }
+        }
+      }
+    },
+    "/optimisation/jobs": {
+      "post": {
+        "summary": "Enqueue CP-SAT baseline, optimize, or replan job",
+        "tags": ["Optimisation"],
+        "security": [{ "OAuth2PasswordBearer": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["mode"],
+                "properties": {
+                  "mode": { "type": "string", "enum": ["baseline", "optimise", "replan"] },
+                  "horizon_days": { "type": "integer", "default": 7 },
+                  "time_limit_seconds": { "type": "integer", "default": 30 },
+                  "reproducible": { "type": "boolean", "default": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": { "description": "Job queued", "headers": { "Location": { "schema": { "type": "string" } } } },
+          "409": { "$ref": "#/components/schemas/ProblemDetails" }
+        }
+      }
+    },
+    "/maintenance/{id}/simulate-delay": {
+      "post": {
+        "summary": "Inject maintenance delay disruption event",
+        "tags": ["Maintenance"],
+        "security": [{ "OAuth2PasswordBearer": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["delay_hours"],
+                "properties": { "delay_hours": { "type": "number", "minimum": 0.5 } }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Delay injected, event emitted, and alert triggered" }
+        }
+      }
+    },
+    "/demo/reset": {
+      "post": {
+        "summary": "Reset database to deterministic seed and as-of baseline (Admin only)",
+        "tags": ["Demo"],
+        "security": [{ "OAuth2PasswordBearer": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["confirmation", "seed"],
+                "properties": {
+                  "confirmation": { "type": "string", "example": "RESET" },
+                  "seed": { "type": "integer", "default": 42 },
+                  "as_of": { "type": "string", "format": "date-time" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Demo environment reset complete" }
+        }
+      }
+    }
+  }
+}
