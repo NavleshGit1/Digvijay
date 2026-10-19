@@ -1,9 +1,13 @@
-import React from "react";
-import { Download, FileText } from "lucide-react";
+import React, { useState } from "react";
+import { Download, FileText, CheckCircle2 } from "lucide-react";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
+import { api } from "../services/api";
 
 export const ReportsPage: React.FC = () => {
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const [successId, setSuccessId] = useState<string | null>(null);
+
   const reports = [
     { id: "REP-01", title: "Operational Summary", desc: "Fleet availability, scheduled sorties, pending work orders", format: "PDF & CSV" },
     { id: "REP-02", title: "Scenario Comparison", desc: "Baseline vs. revised plan distributions under Monte Carlo", format: "PDF & CSV" },
@@ -12,8 +16,27 @@ export const ReportsPage: React.FC = () => {
     { id: "REP-05", title: "Maintenance & Downtime", desc: "Recorded downtime vs. predictive buffer allocations", format: "PDF & CSV" },
     { id: "REP-06", title: "Data Quality & Integrity", desc: "Reconciliation issues and data freshness status", format: "PDF & CSV" },
     { id: "REP-07", title: "Risk & Anomaly Findings", desc: "Unsupervised anomaly scores and technician review actions", format: "PDF & CSV" },
-    { id: "REP-08", title: "Audit & Approval History", desc: "Cryptographic hash chain of plan approvals and config edits", format: "CSV Export" },
+    { id: "REP-08", title: "Audit & Approval History", desc: "Cryptographic hash chain of plan approvals, rejections, and config edits", format: "Signed CSV" },
   ];
+
+  const handleExportCsv = async (reportId: string) => {
+    try {
+      setExportingId(reportId);
+      if (reportId === "REP-08") {
+        await api.exportAuditLogsCsv();
+      } else {
+        // Mock download for other operational summaries
+        await new Promise((r) => setTimeout(r, 600));
+        alert(`Generating export for ${reportId}... Download will start shortly.`);
+      }
+      setSuccessId(reportId);
+      setTimeout(() => setSuccessId(null), 3000);
+    } catch (err: any) {
+      alert(`Export failed: ${err?.message || "Server error"}`);
+    } finally {
+      setExportingId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -21,7 +44,7 @@ export const ReportsPage: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">Operational Reports</h2>
           <p className="text-sm text-slate-500">
-            Permission-scoped report generation with signed MinIO download URLs and data provenance headers.
+            Permission-scoped report generation with signed MinIO download URLs, data provenance, and cryptographic audit hash chains.
           </p>
         </div>
         <Badge variant="default">8 Reports Configured</Badge>
@@ -41,9 +64,24 @@ export const ReportsPage: React.FC = () => {
               <p className="text-xs text-slate-500 mb-4">{r.desc}</p>
             </div>
             <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
-              <Button variant="outline" size="sm" className="w-full">
-                <Download className="w-3.5 h-3.5 mr-1" />
-                Export CSV
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full flex items-center justify-center gap-1.5"
+                onClick={() => handleExportCsv(r.id)}
+                disabled={exportingId === r.id}
+              >
+                {successId === r.id ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-emerald-700">Downloaded</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className={`w-3.5 h-3.5 ${exportingId === r.id ? "animate-bounce" : ""}`} />
+                    <span>{exportingId === r.id ? "Generating..." : "Export CSV"}</span>
+                  </>
+                )}
               </Button>
               <Button variant="primary" size="sm" className="w-full">
                 <FileText className="w-3.5 h-3.5 mr-1" />

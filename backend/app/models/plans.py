@@ -41,9 +41,18 @@ class PlanVersion(BaseModel):
     constraint_set_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
     weight_set_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Phase 5 additions (Architecture Section 26.4)
+    stale_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    refreshed_from: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rollback_target: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    proposal_group_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
     plan: Mapped["Plan"] = relationship("Plan", back_populates="versions")
     assignments: Mapped[list["PlanAssignment"]] = relationship("PlanAssignment", back_populates="plan_version", cascade="all, delete-orphan")
     validation: Mapped["PlanValidation | None"] = relationship("PlanValidation", back_populates="plan_version", uselist=False, cascade="all, delete-orphan")
+    approval_records: Mapped[list["ApprovalRecord"]] = relationship("ApprovalRecord", back_populates="plan_version", cascade="all, delete-orphan")
 
 
 class PlanAssignment(BaseModel):
@@ -93,3 +102,31 @@ class ObjectiveWeightSet(BaseModel):
     buffer_weight: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+
+class ApprovalRecord(BaseModel):
+    """Immutable record of reviewer approval or rejection decision (Architecture Section 15.1)."""
+
+    __tablename__ = "approval_records"
+
+    plan_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("plans.id"), nullable=False)
+    plan_version_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("plan_versions.id"), nullable=False)
+    reviewer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    decision: Mapped[str] = mapped_column(String(50), nullable=False)  # "approved", "rejected"
+    reason: Mapped[str] = mapped_column(String(1000), nullable=False)
+    idempotency_key: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+
+    plan_version: Mapped["PlanVersion"] = relationship("PlanVersion", back_populates="approval_records")
+
+
+class ConstraintSet(BaseModel):
+    """Versioned configuration set of operational constraints (Architecture Section 26.8)."""
+
+    __tablename__ = "constraint_sets"
+
+    version: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(50), default="active", nullable=False)  # draft, active, archived
+    parameters_json: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+

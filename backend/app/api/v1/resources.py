@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -854,3 +855,29 @@ def validate_window(
         conflict_details=conflict_msg,
         conflicting_record_id=conflicting_record.id if conflicting_record else None,
     )
+
+
+@router.delete("/maintenance/records/{record_id}", status_code=status.HTTP_200_OK)
+def delete_maintenance_record(
+    record_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission([UserRole.ADMIN])),
+) -> dict[str, Any]:
+    """Cancels/removes a maintenance record (Admin only, audited)."""
+    record = db.get(MaintenanceRecord, record_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Maintenance record not found")
+
+    db.delete(record)
+    write_audit_entry(
+        db=db,
+        actor_id=current_user.id,
+        role="admin",
+        action="CANCEL_MAINTENANCE",
+        entity_type="maintenance_record",
+        entity_id=str(record_id),
+        reason=f"Admin deleted maintenance record {record_id}",
+    )
+    db.commit()
+    return {"id": str(record_id), "status": "deleted"}
+

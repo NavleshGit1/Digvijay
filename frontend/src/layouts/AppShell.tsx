@@ -44,7 +44,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         />
 
         <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
-          <Outlet />
+          <Outlet context={{ user }} />
         </main>
       </div>
     </div>

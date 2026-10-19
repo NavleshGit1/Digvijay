@@ -16,6 +16,10 @@ import {
   PlanVersionDetail,
   GanttTimelineResponse,
   ObjectiveWeightSet,
+  ApprovalRecordItem,
+  PlanDiffResponse,
+  StalenessCheckResponse,
+  ConstraintSetItem,
 } from "../types/api";
 
 const API_BASE = "/api/v1";
@@ -316,6 +320,135 @@ class ApiClient {
     return this.request<ObjectiveWeightSet>("/optimisation/weight-sets", {
       method: "POST",
       body: JSON.stringify(data),
+    });
+  }
+
+  // Phase 5: Plan Governance & Reviewer Approval
+  async approvePlanVersion(
+    planId: string,
+    versionNumber: number,
+    reason: string,
+    ifMatch?: string,
+    idempotencyKey?: string
+  ): Promise<any> {
+    const headers: Record<string, string> = {};
+    if (ifMatch) headers["If-Match"] = ifMatch;
+    if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+
+    return this.request(`/plans/${planId}/versions/${versionNumber}/approve`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async rejectPlanVersion(
+    planId: string,
+    versionNumber: number,
+    reason: string,
+    idempotencyKey?: string
+  ): Promise<any> {
+    const headers: Record<string, string> = {};
+    if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+
+    return this.request(`/plans/${planId}/versions/${versionNumber}/reject`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async withdrawPlanVersion(planId: string, versionNumber: number, reason?: string): Promise<any> {
+    return this.request(`/plans/${planId}/versions/${versionNumber}/withdraw`, {
+      method: "POST",
+      body: JSON.stringify({ reason: reason || "Withdrawn by user" }),
+    });
+  }
+
+  async getPlanDiff(
+    planId: string,
+    versionNumber: number,
+    targetVersionNumber?: number
+  ): Promise<PlanDiffResponse> {
+    const url = targetVersionNumber
+      ? `/plans/${planId}/versions/${versionNumber}/diff/${targetVersionNumber}`
+      : `/plans/${planId}/versions/${versionNumber}/diff`;
+    return this.request<PlanDiffResponse>(url);
+  }
+
+  async getPlanStaleness(planId: string, versionNumber: number): Promise<StalenessCheckResponse> {
+    return this.request<StalenessCheckResponse>(`/plans/${planId}/versions/${versionNumber}/staleness`);
+  }
+
+  async rollbackPlanProposal(planId: string, targetVersion: number, reason: string): Promise<any> {
+    return this.request(`/plans/${planId}/rollback-proposal`, {
+      method: "POST",
+      body: JSON.stringify({ target_version: targetVersion, reason }),
+    });
+  }
+
+  async refreshPlanProposal(planId: string, versionNumber: number): Promise<any> {
+    return this.request(`/plans/${planId}/versions/${versionNumber}/refresh`, {
+      method: "POST",
+    });
+  }
+
+  async getApprovalRecords(planId: string): Promise<ApprovalRecordItem[]> {
+    return this.request<ApprovalRecordItem[]>(`/plans/${planId}/approval-records`);
+  }
+
+  // Export audit logs CSV with download trigger
+  async exportAuditLogsCsv(params?: Record<string, any>): Promise<void> {
+    const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+    const headers: Record<string, string> = {};
+    if (this.token) {
+      headers["Authorization"] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(`${API_BASE}/admin/audit-logs/export${qs}`, { headers });
+    if (!response.ok) {
+      throw new Error(`Failed to export audit logs: ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `airops_audit_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }
+
+  // Constraint Registry
+  async getConstraintSets(): Promise<ConstraintSetItem[]> {
+    return this.request<ConstraintSetItem[]>("/constraints/sets");
+  }
+
+  async cloneConstraintSet(name: string, cloneFromVersion?: string): Promise<ConstraintSetItem> {
+    return this.request<ConstraintSetItem>("/constraints/sets", {
+      method: "POST",
+      body: JSON.stringify({ name, clone_from_version: cloneFromVersion }),
+    });
+  }
+
+  async updateConstraintSet(id: string, parameters: Record<string, any>): Promise<ConstraintSetItem> {
+    return this.request<ConstraintSetItem>(`/constraints/sets/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ parameters }),
+    });
+  }
+
+  async previewConstraintSetImpact(id: string): Promise<any> {
+    return this.request(`/constraints/sets/${id}/impact-preview`, {
+      method: "POST",
+    });
+  }
+
+  async activateConstraintSet(id: string): Promise<any> {
+    return this.request(`/constraints/sets/${id}/activate`, {
+      method: "POST",
     });
   }
 }

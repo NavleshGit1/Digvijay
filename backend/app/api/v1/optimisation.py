@@ -185,13 +185,40 @@ def list_plans(
             .scalars()
             .all()
         )
+        approved_version_num = None
+        if p.current_approved_version_id:
+            for v in versions:
+                if v.id == p.current_approved_version_id:
+                    approved_version_num = v.version_number
+                    break
+
         results.append({
             "id": str(p.id),
             "name": p.name,
             "current_approved_version_id": str(p.current_approved_version_id) if p.current_approved_version_id else None,
+            "current_approved_version": approved_version_num,
             "versions_count": len(versions),
             "latest_version": versions[0].version_number if versions else 0,
             "latest_solver_status": versions[0].solver_status if versions else None,
+            "latest_kind": versions[0].kind if versions else None,
+            "latest_status": versions[0].status if versions else None,
+            "versions": [
+                {
+                    "version_number": v.version_number,
+                    "kind": v.kind,
+                    "status": v.status,
+                    "solver_status": v.solver_status,
+                    "plan_source": v.plan_source,
+                    "based_on_version": v.based_on_version,
+                    "stale_reason": v.stale_reason,
+                    "refreshed_from": v.refreshed_from,
+                    "rollback_target": v.rollback_target,
+                    "metrics": v.metrics_json or {},
+                    "runtime_seconds": v.solver_runtime_seconds,
+                    "created_at": v.created_at.isoformat(),
+                }
+                for v in versions
+            ],
             "created_at": p.created_at.isoformat(),
         })
     return results
@@ -267,6 +294,13 @@ def get_plan_version_details(
         "status": pv.status,
         "solver_status": pv.solver_status,
         "plan_source": pv.plan_source,
+        "based_on_version": pv.based_on_version,
+        "stale_reason": pv.stale_reason,
+        "refreshed_from": pv.refreshed_from,
+        "rollback_target": pv.rollback_target,
+        "proposal_group_id": pv.proposal_group_id,
+        "rejection_reason": pv.rejection_reason,
+        "created_by": pv.created_by,
         "as_of": pv.as_of.isoformat(),
         "snapshot_hash": pv.snapshot_hash,
         "runtime_seconds": pv.solver_runtime_seconds,
@@ -282,6 +316,7 @@ def get_plan_version_details(
         "assignments_count": len(assignment_items),
         "assignments": assignment_items,
     }
+
 
 
 @router.get("/plans/{plan_id}/versions/{version_number}/gantt")

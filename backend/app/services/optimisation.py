@@ -198,10 +198,7 @@ class OptimisationService:
         self.db.add(plan_version)
         self.db.flush()
 
-        # If this is the first valid baseline plan and no approved version exists, set as current approved
-        if plan.current_approved_version_id is None and val_result.is_valid and plan_kind == PlanKind.BASELINE.value:
-            plan.current_approved_version_id = plan_version.id
-            plan_version.status = PlanStatus.APPROVED.value
+        # Proposals remain in PROPOSED status awaiting Reviewer approval (Tasks P5-2, P5-6)
 
         # Insert Plan Assignments
         for asgn in schedule_result.assignments:

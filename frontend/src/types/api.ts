@@ -203,9 +203,26 @@ export interface PlanSummary {
   id: string;
   name: string;
   current_approved_version_id: string | null;
+  current_approved_version?: number | null;
   versions_count: number;
   latest_version: number;
   latest_solver_status: SolverStatus | null;
+  latest_kind?: PlanKind | null;
+  latest_status?: PlanStatus | null;
+  versions?: Array<{
+    version_number: number;
+    kind: PlanKind;
+    status: PlanStatus;
+    solver_status: SolverStatus;
+    plan_source: PlanSource;
+    based_on_version?: number | null;
+    stale_reason?: string | null;
+    refreshed_from?: number | null;
+    rollback_target?: number | null;
+    metrics?: Record<string, any>;
+    runtime_seconds?: number | null;
+    created_at: string;
+  }>;
   created_at: string;
 }
 
@@ -254,6 +271,13 @@ export interface PlanVersionDetail {
   status: PlanStatus;
   solver_status: SolverStatus;
   plan_source: PlanSource;
+  based_on_version?: number | null;
+  stale_reason?: string | null;
+  refreshed_from?: number | null;
+  rollback_target?: number | null;
+  proposal_group_id?: string | null;
+  rejection_reason?: string | null;
+  created_by?: string | null;
   as_of: string;
   snapshot_hash: string;
   runtime_seconds: number;
@@ -271,6 +295,93 @@ export interface PlanVersionDetail {
   assignments_count: number;
   assignments: PlanAssignmentItem[];
 }
+
+export interface ApprovalRecordItem {
+  id: string;
+  plan_id: string;
+  plan_version_id: string;
+  reviewer_id: string;
+  reviewer_username: string;
+  decision: "approved" | "rejected";
+  reason: string;
+  idempotency_key?: string | null;
+  created_at: string;
+}
+
+export interface PlanDiffAssignmentItem {
+  task_id: string;
+  task_code: string;
+  category: string;
+  change_type: "added" | "removed" | "shifted" | "unchanged";
+  assigned_start?: string;
+  assigned_end?: string;
+  old_start?: string;
+  new_start?: string;
+  start_delta_minutes?: number;
+  old_end?: string;
+  new_end?: string;
+  end_delta_minutes?: number;
+  asset_id?: string | null;
+  asset_identifier?: string | null;
+  old_asset_id?: string | null;
+  old_asset_identifier?: string | null;
+  new_asset_id?: string | null;
+  new_asset_identifier?: string | null;
+  asset_changed?: boolean;
+  crew_changed?: boolean;
+  personnel_ids?: string[];
+}
+
+export interface PlanDiffResponse {
+  from_version: number | null;
+  from_kind?: PlanKind | null;
+  from_status?: PlanStatus | null;
+  to_version: number;
+  to_kind: PlanKind;
+  to_status: PlanStatus;
+  summary: {
+    added_count: number;
+    removed_count: number;
+    shifted_count: number;
+    unchanged_count: number;
+    total_assignments_new: number;
+    total_assignments_old: number;
+    churn_count: number;
+  };
+  metrics_diff: {
+    delay_minutes_delta: number;
+    completion_count_delta: number;
+    runtime_seconds_delta: number;
+    new_total_delay_minutes: number;
+    old_total_delay_minutes: number;
+  };
+  added_assignments: PlanDiffAssignmentItem[];
+  removed_assignments: PlanDiffAssignmentItem[];
+  shifted_assignments: PlanDiffAssignmentItem[];
+  unchanged_assignments: PlanDiffAssignmentItem[];
+}
+
+export interface StalenessCheckResponse {
+  plan_id: string;
+  version_number: number;
+  is_stale: boolean;
+  status: PlanStatus;
+  reason: string | null;
+  hard_conflict: boolean;
+  violation_count?: number;
+  violations?: any[];
+}
+
+export interface ConstraintSetItem {
+  id: string;
+  version: string;
+  name: string;
+  status: "draft" | "active" | "archived";
+  parameters: Record<string, any>;
+  created_by?: string | null;
+  created_at: string;
+}
+
 
 export interface GanttBlock {
   id: string;
