@@ -13,6 +13,7 @@ import {
   Calendar,
   Package,
   X,
+  HelpCircle,
 } from "lucide-react";
 import { api } from "../services/api";
 import { SearchResultItem, UserProfile, UserRole } from "../types/api";
@@ -191,6 +192,16 @@ export const Topbar: React.FC<TopbarProps> = ({
               </span>
             )}
           </div>
+
+          {/* System Limitations & Disclaimers Link (Task P3-13) */}
+          <button
+            onClick={() => navigate("/about/limitations")}
+            className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 border border-slate-200 rounded-lg transition-colors"
+            title="System Limitations & Formal Disclaimers"
+            aria-label="System Limitations"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
 
           {/* User Profile & Role Switcher */}
           <div className="relative">

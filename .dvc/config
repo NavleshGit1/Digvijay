@@ -1,0 +1,9 @@
+[core]
+    remote = minio-storage
+    autostage = true
+
+['remote "minio-storage"']
+    url = s3://airops-datasets
+    endpointurl = http://localhost:9000
+    access_key_id = airops_minio_admin
+    secret_access_key = airops_minio_secure_key

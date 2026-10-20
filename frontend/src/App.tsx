@@ -16,6 +16,7 @@ import { ScenariosPage } from "./pages/ScenariosPage";
 import { AssistantPage } from "./pages/AssistantPage";
 import { ReportsPage } from "./pages/ReportsPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { LimitationsPage } from "./pages/LimitationsPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
 export const App: React.FC = () => {
@@ -199,6 +200,7 @@ export const App: React.FC = () => {
           <Route path="reports/:type" element={<ReportsPage />} />
           <Route path="settings" element={<Navigate to="/settings/clock" replace />} />
           <Route path="settings/:tab" element={<SettingsPage />} />
+          <Route path="about/limitations" element={<LimitationsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   Settings,
   ShieldCheck,
+  HelpCircle,
 } from "lucide-react";
 import { UserRole } from "../types/api";
 
@@ -93,13 +94,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ userRoles, isOpen, onClose }) 
           })}
         </nav>
 
-        {/* Footer Guardrail Badge */}
-        <div className="p-4 border-t border-[#1e293b] bg-[#080d1d]">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Human-In-The-Loop</span>
+        {/* Footer Guardrail Badge & Limitations Link (Task P3-13) */}
+        <div className="p-3 border-t border-[#1e293b] bg-[#080d1d] space-y-2">
+          <NavLink
+            to="/about/limitations"
+            onClick={onClose}
+            className={({ isActive }) =>
+              `flex items-center gap-2 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors ${
+                isActive
+                  ? "bg-amber-500/20 text-amber-300 font-semibold"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-[#1c2541]"
+              }`
+            }
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+            <span>System Limitations</span>
+          </NavLink>
+
+          <div className="pt-1.5 border-t border-[#1e293b]/70 flex items-center justify-between text-[11px] text-slate-400">
+            <div className="flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Human-In-The-Loop</span>
+            </div>
+            <span className="text-[10px] text-slate-500 font-mono">v1.0</span>
           </div>
-          <p className="text-[10px] text-slate-500 mt-1">Constraint Safety Verified</p>
         </div>
       </aside>
     </>
