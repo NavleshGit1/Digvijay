@@ -2,7 +2,7 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import structlog
@@ -80,6 +80,11 @@ def create_app() -> FastAPI:
     # Mount API routers
     app.include_router(api_router)
 
+    @app.websocket("/ws")
+    async def top_level_websocket(websocket: WebSocket) -> None:
+        from app.api.v1.stream import websocket_stream_handler
+        await websocket_stream_handler(websocket)
+
     @app.get("/")
     def root():
         return {
@@ -87,6 +92,7 @@ def create_app() -> FastAPI:
             "version": "0.1.0",
             "status": "online",
             "docs": "/docs",
+            "ws": "/ws",
             "synthetic_prototype": True,
         }
 

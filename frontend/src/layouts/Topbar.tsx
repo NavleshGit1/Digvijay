@@ -25,6 +25,7 @@ interface TopbarProps {
   clockTime: string;
   isClockSimulated: boolean;
   isLiveStreaming: boolean;
+  isWsConnected?: boolean;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -35,6 +36,7 @@ export const Topbar: React.FC<TopbarProps> = ({
   clockTime,
   isClockSimulated,
   isLiveStreaming,
+  isWsConnected = false,
 }) => {
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -100,10 +102,12 @@ export const Topbar: React.FC<TopbarProps> = ({
             <Menu className="w-5 h-5" />
           </button>
 
-          {/* SSE Live Indicator */}
+          {/* Live Stream / WebSocket Indicator */}
           <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs">
-            <Activity className={`w-3.5 h-3.5 ${isLiveStreaming ? 'text-emerald-500 animate-pulse' : 'text-slate-400'}`} />
-            <span className="font-medium text-slate-700">{isLiveStreaming ? "Stream Live" : "Stream Idle"}</span>
+            <Activity className={`w-3.5 h-3.5 ${isWsConnected || isLiveStreaming ? 'text-emerald-500 animate-pulse' : 'text-slate-400'}`} />
+            <span className="font-medium text-slate-700">
+              {isWsConnected ? "WS Live" : isLiveStreaming ? "SSE Live" : "Stream Idle"}
+            </span>
           </div>
         </div>
 

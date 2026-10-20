@@ -144,6 +144,7 @@ export const SchedulePage: React.FC = () => {
 
   useEffect(() => {
     fetchPlansList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routePlanId]);
 
   // Poll job status if a job is currently executing
@@ -170,6 +171,7 @@ export const SchedulePage: React.FC = () => {
     }, 1500);
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeJobId, jobRunning]);
 
   const handleRunJob = async (jobType: "baseline" | "optimise") => {

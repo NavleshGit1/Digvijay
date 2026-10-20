@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { api } from "./services/api";
+import { wsClient } from "./services/websocket";
 import { JobProgress, UserProfile, UserRole } from "./types/api";
 import { AppShell } from "./layouts/AppShell";
 import { LoginPage } from "./pages/LoginPage";
@@ -30,6 +31,7 @@ export const App: React.FC = () => {
   const [clockTime, setClockTime] = useState<string>("2026-10-19 12:00:00 UTC");
   const [isClockSimulated, setIsClockSimulated] = useState<boolean>(false);
   const [isLiveStreaming, setIsLiveStreaming] = useState<boolean>(false);
+  const [isWsConnected, setIsWsConnected] = useState<boolean>(false);
   const [lastJobProgress, setLastJobProgress] = useState<JobProgress | null>(null);
 
   // Sync virtual clock periodically
@@ -51,7 +53,27 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Connect to SSE stream
+  // Connect full-duplex WebSocket client
+  useEffect(() => {
+    wsClient.connect();
+    const unsubStatus = wsClient.onStatusChange((status) => {
+      setIsWsConnected(status === "connected");
+    });
+
+    const unsubJobs = wsClient.subscribe<JobProgress>("jobs:progress", (data) => {
+      if (data) {
+        setLastJobProgress(data);
+      }
+    });
+
+    return () => {
+      unsubJobs();
+      unsubStatus();
+      wsClient.disconnect();
+    };
+  }, []);
+
+  // Connect to SSE stream as complementary / fallback channel
   useEffect(() => {
     let eventSource: EventSource | null = null;
     try {
@@ -153,6 +175,7 @@ export const App: React.FC = () => {
                 clockTime={clockTime}
                 isClockSimulated={isClockSimulated}
                 isLiveStreaming={isLiveStreaming}
+                isWsConnected={isWsConnected}
               />
             ) : (
               <Navigate to="/login" replace />

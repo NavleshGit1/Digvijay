@@ -11,6 +11,7 @@ interface AppShellProps {
   clockTime: string;
   isClockSimulated: boolean;
   isLiveStreaming: boolean;
+  isWsConnected?: boolean;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -20,6 +21,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   clockTime,
   isClockSimulated,
   isLiveStreaming,
+  isWsConnected = false,
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const userRoles = user?.roles || ["planner"];
@@ -41,6 +43,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           clockTime={clockTime}
           isClockSimulated={isClockSimulated}
           isLiveStreaming={isLiveStreaming}
+          isWsConnected={isWsConnected}
         />
 
         <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
