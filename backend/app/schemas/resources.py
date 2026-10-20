@@ -231,5 +231,20 @@ class MaintenanceValidationResponse(BaseModel):
     conflicting_record_id: uuid.UUID | None = None
 
 
+class MaintenanceRecordUpdate(BaseModel):
+    category: str | None = None
+    status: str | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
+    predicted_completion: datetime | None = None
+    is_unplanned: bool | None = None
+    reason: str = Field(..., min_length=3, description="Mandatory reason for audit log")
+
+
+class MaintenanceDelaySimulateRequest(BaseModel):
+    delay_minutes: float = Field(default=120.0, ge=1.0, le=1440.0, description="Maintenance window extension in minutes")
+    reason: str = Field(default="Unscheduled avionics repair delay", min_length=3)
+
+
 # Fix forward reference
 AssetDetailOut.model_rebuild()

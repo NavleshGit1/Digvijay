@@ -16,6 +16,7 @@ from app.models.provenance import (
     Event,
 )
 from app.models.plans import Plan, PlanVersion, PlanAssignment, PlanValidation, ObjectiveWeightSet, ApprovalRecord, ConstraintSet
+from app.models.alerts import Alert, AlertRule
 
 __all__ = [
     "BaseModel",
@@ -55,4 +56,6 @@ __all__ = [
     "ObjectiveWeightSet",
     "ApprovalRecord",
     "ConstraintSet",
+    "Alert",
+    "AlertRule",
 ]

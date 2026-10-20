@@ -154,6 +154,8 @@ def calculate_plan_diff(
         "to_version": v_to.version_number,
         "to_kind": v_to.kind,
         "to_status": v_to.status,
+        "target_version": v_to.version_number,
+        "baseline_version": v_from.version_number if v_from else None,
         "summary": {
             "added_count": len(added),
             "removed_count": len(removed),
@@ -164,6 +166,13 @@ def calculate_plan_diff(
             "churn_count": len(shifted),
         },
         "metrics_diff": {
+            "delay_minutes_delta": delay_delta,
+            "completion_count_delta": completion_delta,
+            "runtime_seconds_delta": runtime_delta,
+            "new_total_delay_minutes": to_metrics.get("total_delay_minutes", 0.0),
+            "old_total_delay_minutes": from_metrics.get("total_delay_minutes", 0.0),
+        },
+        "metric_deltas": {
             "delay_minutes_delta": delay_delta,
             "completion_count_delta": completion_delta,
             "runtime_seconds_delta": runtime_delta,
@@ -328,6 +337,9 @@ class GovernanceService:
             if current_appr_ver is not None:
                 acceptable_tags.add(str(current_appr_ver))
                 acceptable_tags.add(f"v{current_appr_ver}")
+            if target_version.snapshot_hash:
+                acceptable_tags.add(target_version.snapshot_hash)
+                acceptable_tags.add(f'"{target_version.snapshot_hash}"')
 
             if clean_tag not in acceptable_tags and if_match.strip() not in acceptable_tags:
                 raise HTTPException(
@@ -499,6 +511,7 @@ class GovernanceService:
             "version_number": version_number,
             "status": "approved",
             "decision": "approved",
+            "current_approved_version": version_number,
             "reviewer": reviewer.username,
             "reason": clean_reason,
             "previous_approved_version": prev_approved_version_num,

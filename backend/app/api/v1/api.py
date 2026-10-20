@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.admin import router as admin_router
+from app.api.v1.alerts import router as alerts_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.constraints import router as constraints_router
 from app.api.v1.demo import router as demo_router
@@ -29,4 +30,5 @@ api_router.include_router(events_router)
 api_router.include_router(optimisation_router)
 api_router.include_router(governance_router)
 api_router.include_router(constraints_router)
+api_router.include_router(alerts_router)
 

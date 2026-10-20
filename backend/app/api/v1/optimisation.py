@@ -8,7 +8,7 @@ from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from app.core.clock import get_clock
-from app.core.enums import JobState, PlanKind, PlanSource, PlanStatus, SolverStatus, UserRole
+from app.core.enums import ClockMode, JobState, PlanKind, PlanSource, PlanStatus, SolverStatus, UserRole
 from app.api.deps import require_permission
 from app.db.session import get_db
 from app.models.identity import User
@@ -18,7 +18,7 @@ from app.models.plans import ObjectiveWeightSet, Plan, PlanAssignment, PlanValid
 from app.models.resources import Asset, Personnel
 from app.services.audit import write_audit_entry
 from app.services.optimisation import OptimisationService
-from app.worker.tasks import run_optimisation_job
+from app.worker.tasks import run_optimisation_job, run_replan_job
 
 router = APIRouter(tags=["Optimisation & Scheduling"])
 
@@ -33,6 +33,31 @@ class OptimisationJobRequest(BaseModel):
     weight_set_version: int = Field(default=1)
     as_of: datetime | None = None
     run_async: bool = Field(default=True, description="Execute in background worker or synchronously")
+
+
+class ReplanJobRequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
+    plan_id: uuid.UUID | None = None
+    frozen_window_minutes: int = Field(default=120, ge=0, le=1440)
+    disruption_reason: str = Field(default="Operational disruption replan", max_length=255)
+    time_limit_seconds: float = Field(default=15.0, ge=0.01, le=300.0)
+    seed: int = Field(default=42)
+    weight_set_version: int = Field(default=1)
+    as_of: datetime | None = None
+    run_async: bool = Field(default=True, description="Execute in background worker or synchronously")
+
+
+class RollingHorizonRequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
+    advance_minutes: int = Field(default=60, ge=1, le=1440)
+    frozen_window_minutes: int = Field(default=120, ge=0, le=1440)
+    plan_id: uuid.UUID | None = None
+    time_limit_seconds: float = Field(default=15.0, ge=0.01, le=300.0)
+    seed: int = Field(default=42)
+    weight_set_version: int = Field(default=1)
+    run_async: bool = Field(default=False, description="Execute in background worker or synchronously")
 
 
 class WeightSetCreateRequest(BaseModel):
@@ -222,6 +247,66 @@ def list_plans(
             "created_at": p.created_at.isoformat(),
         })
     return results
+
+
+@router.get("/plans/{plan_id}")
+def get_plan_by_id(
+    plan_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission([UserRole.PLANNER, UserRole.REVIEWER, UserRole.ANALYST, UserRole.ADMIN])),
+) -> dict[str, Any]:
+    """Returns plan overview and version summary for a specific plan."""
+    try:
+        p_uuid = uuid.UUID(plan_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid plan UUID")
+
+    plan = db.execute(select(Plan).where(Plan.id == p_uuid)).scalars().first()
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+
+    versions = (
+        db.execute(select(PlanVersion).where(PlanVersion.plan_id == p_uuid).order_by(PlanVersion.version_number.desc()))
+        .scalars()
+        .all()
+    )
+
+    approved_version_num = None
+    if plan.current_approved_version_id:
+        for v in versions:
+            if v.id == plan.current_approved_version_id:
+                approved_version_num = v.version_number
+                break
+
+    return {
+        "id": str(plan.id),
+        "name": plan.name,
+        "current_approved_version_id": str(plan.current_approved_version_id) if plan.current_approved_version_id else None,
+        "current_approved_version": approved_version_num,
+        "versions_count": len(versions),
+        "latest_version": versions[0].version_number if versions else 0,
+        "latest_solver_status": versions[0].solver_status if versions else None,
+        "latest_kind": versions[0].kind if versions else None,
+        "latest_status": versions[0].status if versions else None,
+        "versions": [
+            {
+                "version_number": v.version_number,
+                "kind": v.kind,
+                "status": v.status,
+                "solver_status": v.solver_status,
+                "plan_source": v.plan_source,
+                "based_on_version": v.based_on_version,
+                "stale_reason": v.stale_reason,
+                "refreshed_from": v.refreshed_from,
+                "rollback_target": v.rollback_target,
+                "metrics": v.metrics_json or {},
+                "runtime_seconds": v.solver_runtime_seconds,
+                "created_at": v.created_at.isoformat(),
+            }
+            for v in versions
+        ],
+        "created_at": plan.created_at.isoformat(),
+    }
 
 
 @router.get("/plans/{plan_id}/versions/{version_number}")
@@ -500,3 +585,129 @@ def create_weight_set(
         "is_active": ws.is_active,
         "created_at": ws.created_at.isoformat(),
     }
+
+
+@router.post("/optimisation/replan", status_code=status.HTTP_202_ACCEPTED)
+def create_replan_job(
+    req: ReplanJobRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission([UserRole.PLANNER, UserRole.ADMIN])),
+) -> dict[str, Any]:
+    """Triggers constrained replanning preserving frozen commitments and minimizing churn."""
+    clock_as_of = req.as_of or get_clock().as_of()
+    job_uuid = uuid.uuid4()
+    job = Job(
+        id=job_uuid,
+        job_type="optimisation_replan",
+        state=JobState.QUEUED.value,
+        progress_percent=0.0,
+        message=f"Queued replanning job: {req.disruption_reason} (frozen_window={req.frozen_window_minutes}m, limit={req.time_limit_seconds}s)",
+    )
+    db.add(job)
+    db.commit()
+
+    params = {
+        "plan_id": str(req.plan_id) if req.plan_id else None,
+        "frozen_window_minutes": req.frozen_window_minutes,
+        "disruption_reason": req.disruption_reason,
+        "time_limit_seconds": req.time_limit_seconds,
+        "seed": req.seed,
+        "weight_set_version": req.weight_set_version,
+        "as_of": clock_as_of.isoformat(),
+    }
+
+    if req.run_async:
+        run_replan_job.delay(str(job_uuid), params)
+        return {
+            "job_id": str(job_uuid),
+            "job_type": "replan",
+            "state": JobState.QUEUED.value,
+            "message": "Replan job queued for asynchronous background execution via Celery",
+        }
+    else:
+        from app.services.replanning import ReplanningService
+        service = ReplanningService(db)
+        result = service.execute_replan(
+            job_id_str=str(job_uuid),
+            plan_id=req.plan_id,
+            frozen_window_minutes=req.frozen_window_minutes,
+            disruption_reason=req.disruption_reason,
+            time_limit_seconds=req.time_limit_seconds,
+            seed=req.seed,
+            weight_set_version=req.weight_set_version,
+            as_of=clock_as_of,
+        )
+        return {
+            "job_id": str(job_uuid),
+            "job_type": "replan",
+            "state": JobState.COMPLETED.value,
+            "result": result,
+        }
+
+
+@router.post("/optimisation/rolling-horizon")
+def trigger_rolling_horizon(
+    req: RollingHorizonRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission([UserRole.PLANNER, UserRole.ADMIN])),
+) -> dict[str, Any]:
+    """Advances operational clock and runs rolling-horizon replanning cycle."""
+    from app.services.clock import update_system_clock
+    new_clock_state = update_system_clock(
+        db=db,
+        mode=ClockMode.SIMULATED,
+        advance_seconds=float(req.advance_minutes * 60),
+    )
+    new_as_of = new_clock_state.current_as_of
+
+    job_uuid = uuid.uuid4()
+    job = Job(
+        id=job_uuid,
+        job_type="optimisation_rolling_horizon",
+        state=JobState.QUEUED.value,
+        progress_percent=0.0,
+        message=f"Rolling horizon advanced by {req.advance_minutes}m to {new_as_of.isoformat()}",
+    )
+    db.add(job)
+    db.commit()
+
+    params = {
+        "plan_id": str(req.plan_id) if req.plan_id else None,
+        "frozen_window_minutes": req.frozen_window_minutes,
+        "disruption_reason": f"Rolling horizon advance (+{req.advance_minutes}m)",
+        "time_limit_seconds": req.time_limit_seconds,
+        "seed": req.seed,
+        "weight_set_version": req.weight_set_version,
+        "as_of": new_as_of.isoformat(),
+    }
+
+    if req.run_async:
+        run_replan_job.delay(str(job_uuid), params)
+        return {
+            "job_id": str(job_uuid),
+            "new_as_of": new_as_of.isoformat(),
+            "advance_minutes": req.advance_minutes,
+            "state": JobState.QUEUED.value,
+            "message": "Rolling horizon advance queued for asynchronous replanning",
+        }
+    else:
+        from app.services.replanning import ReplanningService
+        service = ReplanningService(db)
+        result = service.execute_replan(
+            job_id_str=str(job_uuid),
+            plan_id=req.plan_id,
+            frozen_window_minutes=req.frozen_window_minutes,
+            disruption_reason=f"Rolling horizon advance (+{req.advance_minutes}m)",
+            time_limit_seconds=req.time_limit_seconds,
+            seed=req.seed,
+            weight_set_version=req.weight_set_version,
+            as_of=new_as_of,
+        )
+        return {
+            "job_id": str(job_uuid),
+            "new_as_of": new_as_of.isoformat(),
+            "advance_minutes": req.advance_minutes,
+            "state": JobState.COMPLETED.value,
+            "result": result,
+        }
+

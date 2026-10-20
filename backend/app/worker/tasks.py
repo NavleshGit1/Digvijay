@@ -135,3 +135,53 @@ def run_optimisation_job(self, job_id_str: str, params: dict | None = None) -> d
     finally:
         db.close()
 
+
+@celery_app.task(bind=True, queue="optimise")
+def run_replan_job(self, job_id_str: str, params: dict | None = None) -> dict:
+    """Celery task executing controlled replanning with frozen window and churn penalty."""
+    from app.services.replanning import ReplanningService
+
+    params = params or {}
+    db = SessionLocal()
+    try:
+        def progress_callback(pct: float, msg: str):
+            publish_job_progress(job_id_str, JobState.RUNNING.value, pct, msg)
+
+        service = ReplanningService(db)
+        plan_id = uuid.UUID(params["plan_id"]) if params.get("plan_id") else None
+        result = service.execute_replan(
+            job_id_str=job_id_str,
+            plan_id=plan_id,
+            frozen_window_minutes=int(params.get("frozen_window_minutes", 120)),
+            disruption_reason=params.get("disruption_reason", "Operational disruption replan"),
+            time_limit_seconds=float(params.get("time_limit_seconds", 15.0)),
+            seed=int(params.get("seed", 42)),
+            weight_set_version=int(params.get("weight_set_version", 1)),
+            progress_cb=progress_callback,
+        )
+        publish_job_progress(job_id_str, JobState.COMPLETED.value, 100.0, "Replanning completed successfully")
+        return result
+    except Exception as e:
+        job_uuid = uuid.UUID(job_id_str)
+        job = db.execute(select(Job).where(Job.id == job_uuid)).scalars().first()
+        if job:
+            job.state = JobState.FAILED.value
+            job.message = str(e)
+            db.commit()
+        publish_job_progress(job_id_str, JobState.FAILED.value, 0.0, f"Replan job failed: {e}")
+        raise
+    finally:
+        db.close()
+
+
+@celery_app.task(bind=True, queue="default")
+def run_alert_evaluation_job(self) -> dict:
+    """Periodic Celery Beat task evaluating system alert rules and anti-flapping deduplication."""
+    from app.services.alerts import evaluate_system_alerts
+    db = SessionLocal()
+    try:
+        return evaluate_system_alerts(db)
+    finally:
+        db.close()
+
+

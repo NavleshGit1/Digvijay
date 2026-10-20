@@ -20,6 +20,9 @@ import {
   PlanDiffResponse,
   StalenessCheckResponse,
   ConstraintSetItem,
+  AlertItem,
+  AlertSummary,
+  DisruptionImpactResponse,
 } from "../types/api";
 
 const API_BASE = "/api/v1";
@@ -449,6 +452,109 @@ class ApiClient {
   async activateConstraintSet(id: string): Promise<any> {
     return this.request(`/constraints/sets/${id}/activate`, {
       method: "POST",
+    });
+  }
+
+  // Maintenance Disruption & Simulation (Phase 6)
+  async getMaintenanceImpact(recordId: string, delayMinutes: number = 0): Promise<DisruptionImpactResponse> {
+    return this.request<DisruptionImpactResponse>(`/maintenance/records/${recordId}/impact?delay_minutes=${delayMinutes}`);
+  }
+
+  async simulateMaintenanceDelay(
+    recordId: string,
+    delayMinutes: number,
+    reason: string = "Simulated maintenance overrun"
+  ): Promise<{
+    message: string;
+    record_id: string;
+    original_scheduled_end: string;
+    extended_scheduled_end: string;
+    delay_minutes: number;
+    impact: DisruptionImpactResponse;
+  }> {
+    return this.request(`/maintenance/records/${recordId}/simulate-delay`, {
+      method: "POST",
+      body: JSON.stringify({ delay_minutes: delayMinutes, reason }),
+    });
+  }
+
+  async updateMaintenanceRecord(
+    recordId: string,
+    data: {
+      scheduled_start?: string;
+      scheduled_end?: string;
+      actual_start?: string;
+      actual_end?: string;
+      status?: string;
+      findings?: string;
+    }
+  ): Promise<MaintenanceRecord> {
+    return this.request<MaintenanceRecord>(`/maintenance/records/${recordId}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Replanning & Rolling Horizon (Phase 6)
+  async triggerReplan(params: {
+    plan_id?: string;
+    frozen_window_minutes?: number;
+    disruption_reason?: string;
+    time_limit_seconds?: number;
+    seed?: number;
+    weight_set_version?: number;
+    as_of?: string;
+    run_async?: boolean;
+  }): Promise<{ job_id: string; job_type: string; state: string; result?: any }> {
+    return this.request("/optimisation/replan", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+  }
+
+  async triggerRollingHorizon(params: {
+    advance_minutes?: number;
+    frozen_window_minutes?: number;
+    plan_id?: string;
+    time_limit_seconds?: number;
+    seed?: number;
+    weight_set_version?: number;
+    run_async?: boolean;
+  }): Promise<{ job_id: string; new_as_of: string; advance_minutes: number; state: string; result?: any }> {
+    return this.request("/optimisation/rolling-horizon", {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+  }
+
+  // Alert Subsystem (Phase 6)
+  async getAlerts(params?: {
+    status?: string;
+    severity?: string;
+    rule_code?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<AlertItem[]> {
+    const qs = params ? "?" + new URLSearchParams(params as any).toString() : "";
+    return this.request<AlertItem[]>(`/alerts${qs}`);
+  }
+
+  async getAlertSummary(): Promise<AlertSummary> {
+    return this.request<AlertSummary>("/alerts/summary");
+  }
+
+  async evaluateAlerts(): Promise<{ evaluated_at: string; created: number; updated: number; resolved: number }> {
+    return this.request("/alerts/evaluate", { method: "POST" });
+  }
+
+  async acknowledgeAlert(alertId: string): Promise<AlertItem> {
+    return this.request<AlertItem>(`/alerts/${alertId}/acknowledge`, { method: "POST" });
+  }
+
+  async resolveAlert(alertId: string, resolutionNotes?: string): Promise<AlertItem> {
+    return this.request<AlertItem>(`/alerts/${alertId}/resolve`, {
+      method: "POST",
+      body: JSON.stringify({ resolution_notes: resolutionNotes }),
     });
   }
 }

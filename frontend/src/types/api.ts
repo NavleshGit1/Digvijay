@@ -289,6 +289,10 @@ export interface PlanVersionDetail {
     completion_rate?: number;
     objective_value?: number;
     best_bound?: number;
+    churn?: ReplanChurnMetrics;
+    disruption_reason?: string;
+    frozen_window_minutes?: number;
+    [key: string]: any;
   };
   manifest: Record<string, any>;
   validation: PlanValidationReport;
@@ -428,3 +432,68 @@ export interface ObjectiveWeightSet {
   created_by?: string;
   created_at: string;
 }
+
+export interface AlertItem {
+  id: string;
+  rule_code: string;
+  title: string;
+  message: string;
+  severity: SeverityLevel;
+  status: AlertStatus;
+  dedup_key: string;
+  entity_type: string;
+  entity_id: string;
+  payload_json: Record<string, any>;
+  count: number;
+  first_seen: string;
+  last_seen: string;
+  acknowledged_by?: string | null;
+  acknowledged_at?: string | null;
+  resolved_by?: string | null;
+  resolved_at?: string | null;
+}
+
+export interface AlertSummary {
+  total_active: number;
+  new_count: number;
+  acknowledged_count: number;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+}
+
+export interface DisruptionAffectedTask {
+  task_id: string;
+  code: string;
+  title: string;
+  category: string;
+  assigned_start: string;
+  assigned_end: string;
+  overlap_minutes?: number;
+  ripple_depth?: number;
+  crew_ids?: string[];
+  conflict_reason?: string;
+}
+
+export interface DisruptionImpactResponse {
+  record_id: string;
+  asset_id: string;
+  asset_identifier: string;
+  delay_minutes: number;
+  extended_scheduled_end: string;
+  directly_affected_count: number;
+  cascading_affected_count: number;
+  crew_conflicts_count: number;
+  plan_invalidated: boolean;
+  affected_tasks: DisruptionAffectedTask[];
+}
+
+export interface ReplanChurnMetrics {
+  tasks_shifted: number;
+  total_shift_minutes: number;
+  assets_reassigned: number;
+  frozen_tasks_preserved: number;
+  total_scheduled: number;
+  churn_index: number;
+}
+

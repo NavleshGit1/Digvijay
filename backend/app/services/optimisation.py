@@ -263,6 +263,7 @@ class OptimisationService:
             "plan_version_id": str(plan_version.id),
             "version_number": next_v,
             "kind": plan_kind,
+            "snapshot_hash": snap_hash,
             "solver_status": schedule_result.solver_status,
             "runtime_seconds": schedule_result.runtime_seconds,
             "is_valid": val_result.is_valid,

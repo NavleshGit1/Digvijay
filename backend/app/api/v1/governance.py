@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user, require_permission
 from app.core.enums import PlanStatus, UserRole
@@ -226,6 +226,24 @@ def get_plan_diff_against_approved(
     return calculate_plan_diff(db, v_from=v_from, v_to=v_to)
 
 
+@router.get("/plans/{plan_id}/diff")
+def get_plan_diff_query(
+    plan_id: str,
+    target_version: int = Query(2),
+    baseline_version: int = Query(1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission([UserRole.PLANNER, UserRole.REVIEWER, UserRole.ANALYST, UserRole.ADMIN])),
+) -> dict[str, Any]:
+    """Alias for plan difference calculation via query parameters."""
+    return get_plan_versions_diff(
+        plan_id=plan_id,
+        version_number=target_version,
+        target_version_number=baseline_version,
+        db=db,
+        current_user=current_user,
+    )
+
+
 @router.get("/plans/{plan_id}/versions/{version_number}/staleness")
 def get_plan_staleness(
     plan_id: str,
@@ -310,18 +328,25 @@ def list_approval_records(
         raise HTTPException(status_code=400, detail="Invalid plan UUID format")
 
     records = (
-        db.execute(select(ApprovalRecord).where(ApprovalRecord.plan_id == p_uuid).order_by(ApprovalRecord.created_at.desc()))
+        db.execute(
+            select(ApprovalRecord)
+            .options(joinedload(ApprovalRecord.plan_version))
+            .where(ApprovalRecord.plan_id == p_uuid)
+            .order_by(ApprovalRecord.created_at.desc())
+        )
+        .unique()
         .scalars()
         .all()
     )
 
-    reviewers = {u.id: u for u in db.execute(select(User)).scalars().all()}
+    reviewers = {u.id: u for u in db.execute(select(User)).unique().scalars().all()}
 
     return [
         {
             "id": str(r.id),
             "plan_id": str(r.plan_id),
             "plan_version_id": str(r.plan_version_id),
+            "plan_version_number": r.plan_version.version_number if r.plan_version else None,
             "reviewer_id": str(r.reviewer_id),
             "reviewer_username": reviewers[r.reviewer_id].username if r.reviewer_id in reviewers else "Unknown",
             "decision": r.decision,

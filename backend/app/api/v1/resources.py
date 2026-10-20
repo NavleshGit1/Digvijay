@@ -19,6 +19,8 @@ from app.schemas.resources import (
     AssetUpdate,
     MaintenanceRecordCreate,
     MaintenanceRecordOut,
+    MaintenanceRecordUpdate,
+    MaintenanceDelaySimulateRequest,
     MaintenanceValidationRequest,
     MaintenanceValidationResponse,
     PersonnelDetailOut,
@@ -34,6 +36,8 @@ from app.schemas.resources import (
     TaskUpdate,
     ZoneOut,
 )
+from app.models.provenance import Event
+from app.engines.replanning.impact import OperationalImpactDetector
 from app.services.audit import write_audit_entry
 from app.services.maintenance_validation import validate_maintenance_overlap
 
@@ -880,4 +884,176 @@ def delete_maintenance_record(
     )
     db.commit()
     return {"id": str(record_id), "status": "deleted"}
+
+
+@router.get("/maintenance/records/{record_id}/impact")
+def get_maintenance_impact(
+    record_id: uuid.UUID,
+    delay_minutes: float = Query(120.0, ge=1.0, le=1440.0, description="Hypothetical delay duration in minutes"),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Evaluates operational ripple effect and cascading task collisions via NetworkX graph (Task P6-3)."""
+    detector = OperationalImpactDetector(db)
+    try:
+        impact = detector.detect_maintenance_impact(record_id, delay_minutes=delay_minutes)
+        return impact.to_dict()
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post("/maintenance/records/{record_id}/simulate-delay")
+def simulate_maintenance_delay(
+    record_id: uuid.UUID,
+    payload: MaintenanceDelaySimulateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission([UserRole.PLANNER, UserRole.ADMIN])),
+    clock: Clock = Depends(get_clock),
+) -> dict[str, Any]:
+    """
+    Extends maintenance window by delay_minutes, injects maintenance_delay event with audit log,
+    and returns cascading impact assessment (Tasks P6-2 & P6-3).
+    """
+    from datetime import timedelta
+    record = db.get(MaintenanceRecord, record_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Maintenance record not found")
+
+    before_end = record.end_time
+    record.end_time = record.end_time + timedelta(minutes=payload.delay_minutes)
+    if record.predicted_completion:
+        record.predicted_completion = record.predicted_completion + timedelta(minutes=payload.delay_minutes)
+    else:
+        record.predicted_completion = record.end_time
+
+    # Record event in events ledger
+    now = clock.now()
+    event_key = f"delay_{record_id}_{int(now.timestamp())}"
+    event = Event(
+        idempotency_key=event_key,
+        event_type="maintenance_delay",
+        source="simulate_delay_api",
+        affected_entity_type="maintenance_record",
+        affected_entity_id=str(record_id),
+        severity="high",
+        payload_json={
+            "asset_id": str(record.asset_id),
+            "original_end": before_end.isoformat(),
+            "extended_end": record.end_time.isoformat(),
+            "delay_minutes": payload.delay_minutes,
+        },
+        timestamp=now,
+    )
+    db.add(event)
+
+    user_role = current_user.roles[0].name if current_user.roles else "planner"
+    write_audit_entry(
+        db=db,
+        actor_id=current_user.id,
+        role=user_role,
+        action="SIMULATE_MAINTENANCE_DELAY",
+        entity_type="maintenance_record",
+        entity_id=str(record_id),
+        reason=payload.reason,
+        before_state={"end_time": before_end.isoformat()},
+        after_state={"end_time": record.end_time.isoformat(), "delay_minutes": payload.delay_minutes},
+    )
+    db.commit()
+    db.refresh(record)
+
+    # Evaluate impact
+    detector = OperationalImpactDetector(db)
+    impact = detector.detect_maintenance_impact(record_id, delay_minutes=payload.delay_minutes)
+
+    asset = db.get(Asset, record.asset_id)
+    return {
+        "status": "delay_injected",
+        "message": f"Maintenance window extended by {payload.delay_minutes} minutes",
+        "record_id": str(record.id),
+        "delay_minutes": payload.delay_minutes,
+        "original_scheduled_end": before_end.isoformat(),
+        "extended_scheduled_end": record.end_time.isoformat(),
+        "maintenance_record": {
+            "id": str(record.id),
+            "asset_id": str(record.asset_id),
+            "asset_identifier": asset.identifier if asset else "UNKNOWN",
+            "category": record.category,
+            "start_time": record.start_time.isoformat(),
+            "end_time": record.end_time.isoformat(),
+            "predicted_completion": record.predicted_completion.isoformat() if record.predicted_completion else None,
+            "status": record.status,
+            "is_unplanned": record.is_unplanned,
+        },
+        "impact": impact.to_dict(),
+        "impact_assessment": impact.to_dict(),
+    }
+
+
+@router.patch("/maintenance/records/{record_id}", response_model=MaintenanceRecordOut)
+def update_maintenance_record(
+    record_id: uuid.UUID,
+    payload: MaintenanceRecordUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission([UserRole.PLANNER, UserRole.ADMIN])),
+    clock: Clock = Depends(get_clock),
+) -> MaintenanceRecordOut:
+    """Updates maintenance record fields (status, window, category) with audit trail (Task P6-2)."""
+    record = db.get(MaintenanceRecord, record_id)
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Maintenance record not found")
+
+    before_state = {
+        "status": record.status,
+        "category": record.category,
+        "start_time": record.start_time.isoformat(),
+        "end_time": record.end_time.isoformat(),
+    }
+
+    if payload.status is not None:
+        record.status = payload.status
+    if payload.category is not None:
+        record.category = payload.category
+    if payload.start_time is not None:
+        record.start_time = payload.start_time
+    if payload.end_time is not None:
+        record.end_time = payload.end_time
+    if payload.predicted_completion is not None:
+        record.predicted_completion = payload.predicted_completion
+    if payload.is_unplanned is not None:
+        record.is_unplanned = payload.is_unplanned
+
+    user_role = current_user.roles[0].name if current_user.roles else "planner"
+    write_audit_entry(
+        db=db,
+        actor_id=current_user.id,
+        role=user_role,
+        action="UPDATE_MAINTENANCE",
+        entity_type="maintenance_record",
+        entity_id=str(record_id),
+        reason=payload.reason,
+        before_state=before_state,
+        after_state={
+            "status": record.status,
+            "category": record.category,
+            "start_time": record.start_time.isoformat(),
+            "end_time": record.end_time.isoformat(),
+        },
+    )
+    db.commit()
+    db.refresh(record)
+
+    asset = db.get(Asset, record.asset_id)
+    now = clock.now()
+    return MaintenanceRecordOut(
+        id=record.id,
+        asset_id=record.asset_id,
+        asset_identifier=asset.identifier if asset else "UNKNOWN",
+        category=record.category,
+        start_time=record.start_time,
+        end_time=record.end_time,
+        predicted_completion=record.predicted_completion,
+        is_unplanned=record.is_unplanned,
+        status=record.status,
+        is_overdue=record.status != "completed" and record.end_time < now,
+    )
+
 

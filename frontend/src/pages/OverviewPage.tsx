@@ -6,9 +6,10 @@ import {
   RefreshCw,
   AlertTriangle,
   ArrowRight,
+  Bell,
 } from "lucide-react";
 import { api } from "../services/api";
-import { OverviewKPIs, JobProgress, Zone, OperationalEvent } from "../types/api";
+import { OverviewKPIs, JobProgress, Zone, OperationalEvent, AlertSummary } from "../types/api";
 import { KpiCard } from "../components/data-display/KpiCard";
 import { FictionalBasesMap } from "../components/data-display/FictionalBasesMap";
 import { Button } from "../components/ui/Button";
@@ -23,6 +24,7 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ lastJobProgress }) =
   const [kpis, setKpis] = useState<OverviewKPIs | null>(null);
   const [zones, setZones] = useState<Zone[]>([]);
   const [events, setEvents] = useState<OperationalEvent[]>([]);
+  const [alertSummary, setAlertSummary] = useState<AlertSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isSubmittingJob, setIsSubmittingJob] = useState(false);
@@ -32,14 +34,16 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ lastJobProgress }) =
     try {
       setLoading(true);
       setError(null);
-      const [kpiData, zoneData, eventData] = await Promise.all([
+      const [kpiData, zoneData, eventData, alertSummaryData] = await Promise.all([
         api.getOverview(),
         api.getZones(),
         api.getEvents({ limit: 6 }),
+        api.getAlertSummary().catch(() => null),
       ]);
       setKpis(kpiData);
       setZones(zoneData);
       setEvents(eventData);
+      setAlertSummary(alertSummaryData);
     } catch (err: any) {
       setError(err?.detail || "Failed to load overview data");
     } finally {
@@ -97,6 +101,42 @@ export const OverviewPage: React.FC<OverviewPageProps> = ({ lastJobProgress }) =
       </div>
 
       {error && <ErrorState title="Overview Unavailable" detail={error} onRetry={fetchData} />}
+
+      {/* Active Operational Alerts Banner */}
+      {alertSummary && alertSummary.total_active > 0 && (
+        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 rounded-xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold shrink-0">
+              <Bell className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-amber-950 flex items-center gap-2">
+                <span>{alertSummary.total_active} Active Operational Alerts</span>
+                {alertSummary.critical_count > 0 && (
+                  <Badge variant="danger" className="text-[10px]">
+                    {alertSummary.critical_count} CRITICAL
+                  </Badge>
+                )}
+                {alertSummary.high_count > 0 && (
+                  <Badge variant="warning" className="text-[10px]">
+                    {alertSummary.high_count} HIGH
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Anti-flapping subsystem has detected operational readiness disruptions requiring reviewer attention.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/operations?tab=alerts"
+            className="flex items-center gap-1.5 text-xs font-semibold text-amber-900 bg-amber-200/80 hover:bg-amber-200 px-3 py-1.5 rounded-lg shrink-0 transition-colors"
+          >
+            <span>Review Alerts</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
 
       {/* Live SSE Job Stream Card */}
       {(lastJobProgress || jobFeedback) && (

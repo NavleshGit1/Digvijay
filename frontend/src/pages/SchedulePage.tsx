@@ -854,6 +854,73 @@ export const SchedulePage: React.FC = () => {
         </div>
       )}
 
+      {/* Phase 6 Replan & Churn Stability Banner */}
+      {planDetail && planDetail.metrics && planDetail.metrics.churn && (
+        <div className="bg-gradient-to-r from-indigo-50 via-blue-50 to-slate-50 border border-indigo-200 rounded-xl p-4 shadow-xs">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-indigo-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold">
+                <GitCompare className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <span>Replan Stability & Churn Delta</span>
+                  <Badge variant="outline" className="border-indigo-300 text-indigo-700 bg-white font-mono text-[10px]">
+                    CHURN INDEX: {planDetail.metrics.churn.churn_index.toFixed(3)}
+                  </Badge>
+                </div>
+                {planDetail.metrics.disruption_reason && (
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Triggered by: <span className="font-semibold text-slate-800">{planDetail.metrics.disruption_reason}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-500 font-medium">Frozen Lockout:</span>
+              <span className="font-mono font-bold text-slate-800 bg-white px-2 py-1 rounded border border-slate-200">
+                {planDetail.metrics.frozen_window_minutes || 120} mins
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+            <div className="bg-white/80 p-2.5 rounded-lg border border-indigo-100">
+              <div className="text-[10px] font-semibold text-slate-500 uppercase">Tasks Shifted</div>
+              <div className="text-lg font-bold font-mono text-slate-900 mt-0.5">
+                {planDetail.metrics.churn.tasks_shifted}
+              </div>
+              <div className="text-[10px] text-slate-400">
+                Total shift: {planDetail.metrics.churn.total_shift_minutes}m
+              </div>
+            </div>
+
+            <div className="bg-white/80 p-2.5 rounded-lg border border-indigo-100">
+              <div className="text-[10px] font-semibold text-slate-500 uppercase">Assets Reassigned</div>
+              <div className="text-lg font-bold font-mono text-slate-900 mt-0.5">
+                {planDetail.metrics.churn.assets_reassigned}
+              </div>
+              <div className="text-[10px] text-slate-400">Tail-swap reallocations</div>
+            </div>
+
+            <div className="bg-white/80 p-2.5 rounded-lg border border-indigo-100">
+              <div className="text-[10px] font-semibold text-slate-500 uppercase">Frozen Tasks Preserved</div>
+              <div className="text-lg font-bold font-mono text-emerald-700 mt-0.5">
+                {planDetail.metrics.churn.frozen_tasks_preserved}
+              </div>
+              <div className="text-[10px] text-emerald-600 font-medium">100% Locked & Immobile</div>
+            </div>
+
+            <div className="bg-white/80 p-2.5 rounded-lg border border-indigo-100">
+              <div className="text-[10px] font-semibold text-slate-500 uppercase">Warm Start Solver Mode</div>
+              <div className="text-xs font-bold text-indigo-700 mt-1">CP-SAT Hints Active</div>
+              <div className="text-[10px] text-slate-400 font-mono">Weight penalty &ge; 75</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tabs Header */}
       <div className="flex items-center justify-between border-b border-slate-200">
         <div className="flex gap-4">
