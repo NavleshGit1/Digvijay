@@ -67,3 +67,8 @@ mlruns/
 .dvc/cache/
 artifacts/models/
 scratch/
+
+# Markdown documentation files (excluded per repository upload policy)
+*.md
+**/*.md
+
