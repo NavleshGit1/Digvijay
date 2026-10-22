@@ -72,3 +72,11 @@ scratch/
 *.md
 **/*.md
 
+# Validation scripts & developer utility files (excluded per repository upload policy)
+scripts/
+docs/
+.dvc/
+.dvcignore
+.github/
+.pre-commit-config.yaml
+

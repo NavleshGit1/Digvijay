@@ -1,9 +1,0 @@
-# DVC ignore rules
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.coverage
-*.log
-.env
-dist/
-node_modules/
