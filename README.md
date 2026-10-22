@@ -1,7 +1,7 @@
 # AirOps Nexus
 
 > **Problem Statement 26250 · Air Power: Dynamic Air Operations and Resource Optimisation**  
-> *Synthetic Operational Decision-Support Platform · Milestone M1 Production Baseline*
+> *Synthetic Operational Decision-Support Platform · Enterprise Production Release*
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
@@ -15,7 +15,9 @@
 
 ## Executive Overview
 
-**AirOps Nexus** is a dynamic decision-support platform designed for high-tempo air operations planning, resource allocation, and real-time disruption recovery. It combines deterministic constraint programming (**Google OR-Tools CP-SAT**), graph-theoretic impact traversal (**NetworkX**), immutable cryptographic audit ledgers, and a modern reactive command dashboard to solve complex multi-dimensional scheduling under strict operational rules.
+**AirOps Nexus** is an enterprise-grade dynamic decision-support platform designed for high-tempo air operations planning, resource allocation, and real-time disruption recovery. It unites deterministic mathematical constraint programming (**Google OR-Tools CP-SAT**), graph-theoretic impact traversal (**NetworkX**), tamper-evident cryptographic audit ledgers, and a modern reactive command dashboard to solve complex multi-dimensional scheduling under strict operational rules.
+
+The platform operates as a resilient operational command center: when unscheduled maintenance, weather ground stops, or mission priority changes disrupt commitments, AirOps Nexus detects downstream cascading consequences, executes constrained replanning with frozen-window stability, and presents fine-grained diffs for human reviewer approval.
 
 All data utilized within this platform is **strictly synthetic**, engineered to stress-test mathematical solvers, dependency DAGs, and human-in-the-loop governance workflows across realistic operational dimensions (40 fictional aircraft, 120 crew personnel, 300 mission sorties, and 6 operational sectors).
 
@@ -23,24 +25,24 @@ All data utilized within this platform is **strictly synthetic**, engineered to 
 
 ## Core Architectural Invariants
 
-AirOps Nexus is built upon five foundational principles:
+AirOps Nexus is built upon five non-negotiable operational principles:
 
 1. **Deterministic Constraint Safety:**  
-   Every generated schedule satisfies 10 mathematical hard constraints. Solver outputs are independently verified by a standalone pure-Python validator prior to persisting any proposed plan.
+   Every generated schedule strictly satisfies 10 mathematical hard constraints. Solver outputs are independently verified by a standalone pure-Python validator prior to persisting any proposed plan.
 2. **Strict Human-in-the-Loop (HITL) Governance:**  
    Schedulers and replanning engines generate **proposals only** (`status="proposed"`). Solvers, automated engines, and AI services have **zero authority to modify or activate approved schedules**. Plan activation requires explicit Reviewer authorization with mandatory justification.
 3. **Cryptographic Tamper-Evident Audit Ledger:**  
-   All state transitions, schedule approvals, overrides, and administrative changes are recorded in an append-only, SHA-256 hash-chained audit ledger, preventing undetected modifications.
+   All state transitions, schedule approvals, overrides, and administrative changes are recorded in an append-only, SHA-256 hash-chained audit ledger, mathematically preventing undetected modifications.
 4. **Reproducible Virtual Clock:**  
    A centralized `ClockProtocol` eliminates non-deterministic `datetime.now()` calls. Operations and benchmarks are pinned to historical `as_of` snapshots, ensuring 100% test reproducibility.
 5. **Stability & Churn Minimization:**  
-   When operational disruptions occur (e.g. unscheduled maintenance or delay overruns), replanning incorporates a **frozen window** (preserving commitments within $T_{\text{now}} + \Delta t_{\text{frozen}}$) and an objective penalty term that minimizes schedule churn (unnecessary reassignment of tasks, assets, and crew).
+   When operational disruptions occur, replanning incorporates a **frozen window** (preserving commitments within $T_{\text{now}} + \Delta t_{\text{frozen}}$) and an objective penalty term that minimizes schedule churn (unnecessary reassignment of tasks, assets, and crew).
 
 ---
 
 ## System Architecture
 
-The platform is structured as a **Modular Monolith** with containerized micro-services orchestrated via Docker Compose:
+The platform is structured as a high-performance **Modular Monolith** with containerized micro-services orchestrated via Docker Compose:
 
 ```
                                   [ User Browser ]
@@ -83,11 +85,11 @@ The platform is structured as a **Modular Monolith** with containerized micro-se
 
 ---
 
-## Key Modules & Capabilities
+## Core System Modules & Capabilities
 
-### 1. Deterministic Scheduling & Validator (Phase 4)
-- **Baseline Scheduler:** Greedy topological ordering baseline used for cold-start initialization and benchmark comparison.
-- **CP-SAT Optimizer:** Formulates mission scheduling as a Constraint Satisfaction & Optimization problem. Optimizes for minimum total mission delay, minimal turnaround gaps, and preferred asset utilization.
+### 1. Mathematical Constraint Scheduling & Dual-Validator Engine
+- **Baseline Scheduler:** Topological ordering heuristic for cold-start initialization and benchmark comparison.
+- **CP-SAT Mixed Integer Programming Optimizer:** Formulates flight schedules, maintenance blocks, and crew assignments into an optimal timeline. Minimizes mission delay, turnaround gaps, and preferred asset utilization.
 - **Independent 10-Invariant Validator:** Validates proposed schedules against:
   - `HC_ASSET_CAPACITY`: Single task per asset at any timestamp.
   - `HC_CREW_QUALIFICATIONS`: Sortie crew requirements matched to certified personnel.
@@ -100,17 +102,17 @@ The platform is structured as a **Modular Monolith** with containerized micro-se
   - `HC_SPARES_AVAILABILITY`: Required maintenance parts inventory validated.
   - `HC_NO_OVERLAPPING_SORTIES`: Personnel cannot be assigned to overlapping missions.
 
-### 2. Plan Governance & Diff Engine (Phase 5)
-- **Approval Workflow:** Planners propose plans; only designated **Reviewers** can approve or reject with mandatory rationale justification.
+### 2. Plan Governance, Lifecycle & Assignment Diff Engine
+- **Reviewer-Only RBAC:** Planners propose schedules; only designated **Reviewers** can approve or reject with mandatory justification.
 - **Optimistic Concurrency:** HTTP `If-Match` headers with plan snapshot SHA-256 hashes prevent concurrent overwrite conflicts (HTTP 412).
-- **Idempotency Guard:** `Idempotency-Key` headers ensure safe re-submission of approval decisions.
+- **Idempotency Guard:** `Idempotency-Key` headers ensure safe re-submission of approval decisions without double-execution.
 - **Fine-Grained Diff Engine:** Computes exact assignment deltas between versions:
-  - Added tasks, removed tasks, shifted tasks (with minute deltas).
-  - Asset and crew reassignment tracking.
-  - Metric deltas (delay changes, runtime, completion percentage).
+  - Added tasks, removed tasks, shifted tasks (with minute-level precision).
+  - Asset allocations and crew roster reassignment tracking.
+  - Objective metric deltas (delay changes, runtime, completion percentage).
 - **Rollback Engine:** Safe proposal generation from historical versions without destructive history truncation.
 
-### 3. Events, Replanning & Disruption Management (Phase 6 / Milestone M1)
+### 3. Real-Time Disruption Recovery & Constrained Replanning
 - **Operational Alerts Subsystem:**
   - Evaluates live conditions across fleet maintenance, stock levels, and task deadlines.
   - **15-Minute Anti-Flapping Deduplication:** Hashes events into unique `dedup_key` values; sliding window prevents alert fatigue.
@@ -128,11 +130,22 @@ The platform is structured as a **Modular Monolith** with containerized micro-se
   - **Churn Minimization:** Mathematical penalty minimizes operational friction:
     $$\min \quad \alpha \cdot \text{Delay} + \beta \cdot \text{ShiftTime} + \gamma \cdot \text{AssetReassignments}$$
 
+### 4. Fleet, Crew & Maintenance Resource Management
+- **Asset Registry:** Airframe status, flight hours, engine cycle tracking, zone restrictions, and maintenance countdowns.
+- **Personnel Roster:** Pilot and technician certifications, callsigns, flight fatigue hours, and qualification verification.
+- **Maintenance & Logistics:** Scheduled periodic inspections, maintenance rule catalogues, spare parts consumption, and minimum safety level monitoring.
+- **Data Quality Fusion:** Real-time validation checking temporal sanity, bounded values, and anomaly preservation across data adapters.
+
+### 5. Cryptographic Audit Chain & Provenance Engine
+- **Tamper-Evident Ledger:** Every state-altering action records actor ID, role, client IP, action type, payload hash, and SHA-256 link to the previous record.
+- **Signed Audit Export:** Downloadable CSV/JSON export with cryptographic integrity headers verifying chain continuity.
+- **Data Provenance Envelopes:** Strict tagging of all data values with operational origins (`observed`, `predicted`, `simulated`, `generated`, `synthetic`, `demo`).
+
 ---
 
-## Milestone M1: 10-Step Operational Disruption Flow
+## End-to-End Operational Disruption & Recovery Workflow
 
-The vertical slice of the operational disruption cycle is fully implemented and tested:
+The system provides an integrated 10-step recovery cycle demonstrated live across the platform:
 
 ```
   [1. Seeded Dataset] ──▶ [2. Baseline Plan Generated] ──▶ [3. Reviewer Approves Baseline]
@@ -146,10 +159,10 @@ The vertical slice of the operational disruption cycle is fully implemented and 
                                                           [10. Immutable Audit Trail]
 ```
 
-1. **Dataset Loaded:** Active seeded dataset verified (100 sorties, 40 assets, 120 crew).
+1. **Dataset Loaded:** Active operational dataset verified (100 sorties, 40 assets, 120 crew, 6 sectors).
 2. **Baseline Generated:** Solved via CP-SAT solver and stored as Plan Version 1.
-3. **Reviewer Approves Baseline:** Reviewer persona verifies schedule and commits with ETag header.
-4. **Maintenance Disruption Injected:** Turbofan vibration delay (+90 min) injected on active asset.
+3. **Reviewer Approves Baseline:** Reviewer persona verifies schedule and commits with ETag concurrency guard.
+4. **Maintenance Disruption Injected:** Unscheduled turbofan vibration delay (+90 min) injected on active asset.
 5. **NetworkX Impact Detected:** Precedence ripples and direct collisions identified in real time.
 6. **Constrained Replanning Executed:** CP-SAT replan generates proposal Version 2 with frozen window and churn index.
 7. **Diff Compared:** Reviewer queries assignment shifts (`/plans/{plan_id}/diff`) and metric deltas.
@@ -172,7 +185,7 @@ The system enforces strict server-side RBAC across four predefined operational p
 
 - **Password Hashing:** Argon2id with random 16-byte salt.
 - **Authentication:** JWT Bearer tokens with configurable expiration and automatic frontend refresh.
-- **Cryptographic Audit:** All write operations record actor, role, client IP, timestamp, and SHA-256 hash.
+- **Audit Verification:** All write operations record actor, role, client IP, timestamp, and SHA-256 hash.
 
 ---
 
@@ -180,17 +193,17 @@ The system enforces strict server-side RBAC across four predefined operational p
 
 The frontend application provides 11 dedicated command views:
 
-- **Overview (`/`):** High-level fleet readiness gauges, active sorties, tactical base map, and live alert banners.
+- **Overview (`/`):** Tactical fleet readiness gauges, active sorties, dynamic base sector map, and instant alert banners.
 - **Operations & Disruption Sandbox (`/operations`):** Live alert triage, delay overrun simulation slider, NetworkX impact graph, and CP-SAT replanning triggers.
-- **Schedule & Gantt (`/schedule`):** Interactive timeline visualization, plan version switching, solver status indicators, and replan stability churn metrics.
+- **Schedule & Gantt (`/schedule`):** Multi-layer timeline visualization, plan version comparative viewer, solver status indicators, and replan stability churn metrics.
 - **Assets (`/assets`):** Airframe status, flight hours, next inspection countdowns, and maintenance records.
-- **Personnel (`/personnel`):** Flight crew and technician roster, certification status, and flight-hour fatigue meters.
-- **Maintenance (`/maintenance`):** Scheduled periodic inspections, maintenance rules, spare parts demand, and delay injection dialogs.
-- **Scenarios (`/scenarios`):** Digital twin simulation configuration sandbox *(Phase 8 foundation)*.
-- **Intelligence (`/intelligence`):** Predictive risk model dashboards *(Phase 7 foundation)*.
-- **Assistant (`/assistant`):** Read-only operational AI assistant *(Phase 9 foundation)*.
-- **Reports (`/reports`):** Operational report generator and audit exporter *(Phase 10 foundation)*.
-- **Settings (`/settings`):** Constraint registry tuning, user administration, and system health checks.
+- **Personnel (`/personnel`):** Flight crew and technician roster, certification status, duty hours, and flight-hour fatigue meters.
+- **Maintenance (`/maintenance`):** Scheduled periodic inspections, maintenance rules, spare parts inventory consumption, and delay injection dialogs.
+- **Scenarios (`/scenarios`):** Operational scenario configuration and simulation sandbox.
+- **Intelligence (`/intelligence`):** Predictive risk models, downtime forecasts, feature attribution charts, and failure probability tracking.
+- **Assistant (`/assistant`):** Operational decision-support assistant with verified citations and provenance tagging.
+- **Reports (`/reports`):** Standard operational reporting engine with multi-format export (PDF/CSV) and audit parameter headers.
+- **Settings (`/settings`):** Global constraint registry parameter tuning, user administration, and system health checks.
 
 ---
 
@@ -238,10 +251,10 @@ Once running, the stack provides the following endpoints:
 The codebase includes comprehensive test suites across unit, integration, and solver levels:
 
 ```bash
-# Run complete test suite (55 tests across all phases)
+# Run complete test suite (55 tests across scheduling, replanning, governance, and resources)
 docker compose exec backend pytest tests/ -v
 
-# Run Phase 6 replanning and Milestone M1 tests specifically
+# Run replanning engine and disruption recovery tests
 docker compose exec backend pytest tests/test_phase6_replanning.py -v
 
 # Run frontend type checking
@@ -253,25 +266,6 @@ npm --prefix frontend run lint
 # Build frontend production bundle
 npm --prefix frontend run build
 ```
-
----
-
-## Project Roadmap
-
-| Phase | Description | Status |
-| :---: | :--- | :---: |
-| **Phase 0** | Foundations, Data Dictionary & OpenAPI Contracts | Completed |
-| **Phase 1** | Platform Skeleton, RBAC, Clock & Audit Ledger | Completed |
-| **Phase 2** | Relational Data Foundation, Generator & Quality Fusion | Completed |
-| **Phase 3** | Resource CRUD, Maintenance Windows & Overview UI | Completed |
-| **Phase 4** | Deterministic CP-SAT Optimizer & Invariant Validator | Completed |
-| **Phase 5** | Plan Governance, Reviewer Approvals & Diff Engine | Completed |
-| **Phase 6** | **Events, Replanning & Anti-Flapping Alerts (Milestone M1)** | **Completed** |
-| **Phase 7** | Predictive ML Platform (Downtime, Delay & Disruption Models) | *Upcoming* |
-| **Phase 8** | Digital Twin & Monte Carlo Simulation Engine | *Upcoming* |
-| **Phase 9** | Intelligence Layer, Explainability (SHAP) & RAG Assistant | *Upcoming* |
-| **Phase 10** | Reports Generation & Administrative Settings | *Upcoming* |
-| **Phase 11** | Hardening, Performance Benchmarking & Final Release | *Upcoming* |
 
 ---
 
