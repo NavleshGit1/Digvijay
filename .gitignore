@@ -68,9 +68,10 @@ mlruns/
 artifacts/models/
 scratch/
 
-# Markdown documentation files (excluded per repository upload policy)
+# Markdown documentation files (excluded per repository upload policy, except root README.md)
 *.md
 **/*.md
+!README.md
 
 # Validation scripts & developer utility files (excluded per repository upload policy)
 scripts/
